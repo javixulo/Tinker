@@ -1,0 +1,7 @@
+# Secrets
+.env
+.github-token
+*.token
+
+# macOS
+.DS_Store
