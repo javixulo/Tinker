@@ -4,11 +4,12 @@ C# / .NET 10 MCP server (inventory of home devices + search in their manuals). M
 
 ## Rules
 
-- Everything is **C# on .NET 10**. No Python, no other runtime. Python code in `reference/` is read-only: port it, never run or edit it.
+- Everything is **C# on .NET 10**. Python code in `reference/` is read-only: port it, never run or edit it.
 - The specs are in `docs/`. Read `docs/functional_spec.md` and `docs/technical_spec.md` before changing behaviour, and update them when a decision is made. `docs/legacy/` is the old Python spec: background only.
 - The contract with the clients is the tool names, schemas and messages (technical spec, legacy section 3.11), not the implementation. Do not change it without saying so.
-- MCP over stdio: **never write to stdout** besides the protocol. Logs go to stderr.
+- The MCP server uses the Streamable HTTP transport (technical spec, sections 1 and 4). Logs go to the console on stderr and to OpenTelemetry (OTLP); see technical spec, section 3.
 - Messages in tool results are written for the AI that consumes them: what happened and what to do next. Never return a raw exception.
+- Write documentation and code in English and communicate with the user in Spanish.
 
 ## Commands
 
