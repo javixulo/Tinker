@@ -1,0 +1,22 @@
+# Local sandbox: builds the image from the repository (../Dockerfile) and runs it with the folders of this directory.
+# From this folder:  docker compose up --build   (add -d to run in the background; docker-compose if you have the old binary)
+# No `user:` here on purpose: this sandbox runs as the image's default user so nothing has to be configured.
+# The deployment compose in the repository root runs as a non-root user.
+services:
+  tinker:
+    build:
+      context: ..            # the repository root, where the Dockerfile is
+    image: tinker-mcp:sample
+    container_name: tinker-sample
+    ports:
+      - "8080:8080"          # MCP at http://localhost:8080/mcp, health at /health
+    environment:
+      TZ: Europe/Madrid
+      # Leave the next line empty to export no traces; logs always go to `docker logs`.
+      OTEL_EXPORTER_OTLP_ENDPOINT: ""
+      # Uncomment to use no model at all (matches by shared words): faster to start, only for quick checks.
+      # Tinker__EmbeddingModel: hash
+    volumes:
+      - ./data:/data                 # the database: inventory.db (read and write)
+      - ./manuals:/manuals:ro        # your manuals; paths in register_device are relative to this folder
+      - ../models:/models:ro         # model.onnx and vocab.txt of bge-small-en-v1.5

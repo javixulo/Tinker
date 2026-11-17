@@ -71,6 +71,8 @@ docs/                      Functional and technical specs
 - The manuals folder is mounted **read-only** (`:ro`). The server never writes manuals, and a read-only mount is a second line of defence for the confinement of manual paths (section 5).
 - The startup validation also checks that the database schema is at the expected version (section 7). **Built:** it checks that the embedding model files exist and that the embedding model of the index is the configured one.
 
+**Built.** `Dockerfile` (multi-stage, .NET 10 `aspnet` runtime, `curl` only for the healthcheck) and `docker-compose.yml`: `/data` (bind mount), `/manuals:ro`, `/models:ro`, `user:` from `TINKER_UID`/`TINKER_GID`, `TZ`, OTLP endpoint through `OTEL_EXPORTER_OTLP_ENDPOINT`, `restart: unless-stopped`, healthcheck on `/health`. Checked by building the image and running it as a non-root user: it starts, loads the model, registers a device through `/mcp`, keeps the data across a restart and rejects a duplicate. Not done: the shared Docker network and Seq (section 9), a published image.
+
 ## 5. Architecture
 
 **Proposed.**

@@ -1,0 +1,23 @@
+# Tinker MCP. Copy this file next to your other MCPs and adjust the paths and the user.
+services:
+  tinker:
+    build: .
+    image: tinker-mcp:latest
+    container_name: tinker-mcp
+    restart: unless-stopped
+    # Non-root: use the owner of the data folder (`id -u`:`id -g` on the NAS).
+    user: "${TINKER_UID:-1000}:${TINKER_GID:-1000}"
+    ports:
+      - "${TINKER_PORT:-8080}:8080"
+    environment:
+      TZ: ${TZ:-Europe/Madrid}
+      # OpenTelemetry (Seq accepts OTLP over HTTP). Leave empty to export nothing; logs still go to `docker logs`.
+      OTEL_SERVICE_NAME: tinker-mcp
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    volumes:
+      # Database: a bind mount on a LOCAL disk of the host (SQLite locking is not reliable over NFS or SMB).
+      - ${TINKER_DATA:-./data}:/data
+      # The user's manuals, read-only: the server never writes them.
+      - ${TINKER_MANUALS:-./manuals}:/manuals:ro
+      # Embedding model files (model.onnx and vocab.txt of BAAI/bge-small-en-v1.5), read-only.
+      - ${TINKER_MODELS:-./models}:/models:ro

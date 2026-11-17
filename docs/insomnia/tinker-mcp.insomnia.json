@@ -1,0 +1,537 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2026-11-17T16:00:00.000Z",
+  "__export_source": "insomnia.desktop.app:v10",
+  "resources": [
+    {
+      "_id": "wrk_tinker_mcp",
+      "_type": "workspace",
+      "parentId": null,
+      "name": "Tinker MCP",
+      "description": "Manual tests for the Tinker MCP (Streamable HTTP). Set base_url (host and port, no path) in the environment.",
+      "scope": "collection"
+    },
+    {
+      "_id": "env_base",
+      "_type": "environment",
+      "parentId": "wrk_tinker_mcp",
+      "name": "Base Environment",
+      "data": {
+        "base_url": "http://localhost:8080"
+      },
+      "dataPropertyOrder": {
+        "&": [
+          "base_url"
+        ]
+      },
+      "color": null,
+      "isPrivate": false,
+      "metaSortKey": 1763391000000
+    },
+    {
+      "_id": "fld_discovery",
+      "_type": "request_group",
+      "parentId": "wrk_tinker_mcp",
+      "name": "Discovery",
+      "description": "",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": -1763391000000,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "fld_uc01",
+      "_type": "request_group",
+      "parentId": "wrk_tinker_mcp",
+      "name": "UC-01 Register a device",
+      "description": "",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": -1763390999999,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "fld_uc02",
+      "_type": "request_group",
+      "parentId": "wrk_tinker_mcp",
+      "name": "UC-02 Reject an invalid registration",
+      "description": "",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": -1763390999998,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_health",
+      "_type": "request",
+      "parentId": "fld_discovery",
+      "name": "Health",
+      "description": "GET /health: what the Docker HEALTHCHECK calls. Expect 200 and {\"status\":\"ok\"}. It is not an MCP endpoint.",
+      "method": "GET",
+      "url": "{{ _.base_url }}/health",
+      "body": {},
+      "headers": [],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763391000001,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_00",
+      "_type": "request",
+      "parentId": "fld_discovery",
+      "name": "List tools",
+      "description": "Lists the tools and their schemas (snake_case, descriptions).",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/list\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763391000000,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_01",
+      "_type": "request",
+      "parentId": "fld_discovery",
+      "name": "Initialize",
+      "description": "Not needed (the server is stateless) but any client does it first.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"initialize\",\n  \"params\": {\n    \"protocolVersion\": \"2025-06-18\",\n    \"capabilities\": {},\n    \"clientInfo\": {\n      \"name\": \"insomnia\",\n      \"version\": \"1\"\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999999,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_02",
+      "_type": "request",
+      "parentId": "fld_uc01",
+      "name": "1 Required fields",
+      "description": "Criterion 1. Expect ok=true, device_id assigned.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"register_device\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \"Shelly\",\n        \"model\": \"Dimmer 2\",\n        \"manuals\": [\n          \"shelly/dimmer_2_guide.pdf\"\n        ]\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999998,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_03",
+      "_type": "request",
+      "parentId": "fld_uc01",
+      "name": "2 Optional fields and several manuals",
+      "description": "Criteria 2 and 3. Two manuals that no device owns yet.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"register_device\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \"Fibaro\",\n        \"model\": \"Double Smart\",\n        \"manuals\": [\n          \"fibaro/fgs_2x3_en_manual.pdf\",\n          \"shelly/rgbw2_app_guide.pdf\"\n        ],\n        \"device_type\": \"Switch\",\n        \"color\": \"White\",\n        \"location\": \"Salon\",\n        \"invoice\": \"INV-42\",\n        \"urls\": [\n          \"https://example.com/support\"\n        ],\n        \"purchase_date\": \"2025-03-01\",\n        \"warranty_end_date\": \"2027-03-01\",\n        \"status\": \"active\"\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999997,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_04",
+      "_type": "request",
+      "parentId": "fld_uc02",
+      "name": "1 Device exists",
+      "description": "Run after UC-01. Expect device_exists with the registered device, and also manual_in_use because the manual is taken (both reasons come together).",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"register_device\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \"Shelly\",\n        \"model\": \"Dimmer 2\",\n        \"manuals\": [\n          \"shelly/rgbw2_app_guide.pdf\"\n        ]\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999996,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_05",
+      "_type": "request",
+      "parentId": "fld_uc02",
+      "name": "2 Same device written differently",
+      "description": "Criterion 2: case and spaces ignored. Expect device_exists (and manual_in_use, as above).",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"register_device\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \"shelly\",\n        \"model\": \" dimmer  2 \",\n        \"manuals\": [\n          \"shelly/rgbw2_app_guide.pdf\"\n        ]\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999995,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_06",
+      "_type": "request",
+      "parentId": "fld_uc02",
+      "name": "4 Required fields missing",
+      "description": "Expect invalid_fields listing brand, model and manuals.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"register_device\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \" \",\n        \"model\": \"\",\n        \"manuals\": []\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999994,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_07",
+      "_type": "request",
+      "parentId": "fld_uc02",
+      "name": "4b No device",
+      "description": "A missing device is tolerated: invalid_fields, not a protocol error.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"register_device\",\n    \"arguments\": {}\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999993,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_08",
+      "_type": "request",
+      "parentId": "fld_uc02",
+      "name": "4c Invalid status",
+      "description": "Expect invalid_fields naming the four valid values (and manual_in_use: the manual is taken).",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"register_device\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \"Acme\",\n        \"model\": \"Box\",\n        \"manuals\": [\n          \"shelly/rgbw2_app_guide.pdf\"\n        ],\n        \"status\": \"broken\"\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999992,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_09",
+      "_type": "request",
+      "parentId": "fld_uc02",
+      "name": "5 Manual not found",
+      "description": "Expect manual_not_found.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"register_device\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \"Acme\",\n        \"model\": \"Box\",\n        \"manuals\": [\n          \"shelly/missing.pdf\"\n        ]\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999991,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_10",
+      "_type": "request",
+      "parentId": "fld_uc02",
+      "name": "6 Manual in use",
+      "description": "Run after UC-01 request 1. Expect manual_in_use with the owner.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"register_device\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \"Acme\",\n        \"model\": \"Box\",\n        \"manuals\": [\n          \"shelly/dimmer_2_guide.pdf\"\n        ]\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999990,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_11",
+      "_type": "request",
+      "parentId": "fld_uc02",
+      "name": "7 Outside the folder",
+      "description": "Absolute, home shortcut and encoded paths. Expect manual_not_allowed (outside).",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"register_device\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \"Acme\",\n        \"model\": \"Box\",\n        \"manuals\": [\n          \"/etc/passwd\",\n          \"~/Documents/guide.pdf\",\n          \"%2e%2e/secret.pdf\"\n        ]\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999989,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_12",
+      "_type": "request",
+      "parentId": "fld_uc02",
+      "name": "8 Dot dot",
+      "description": "Expect manual_not_allowed (cannot contain ..), even if it would end up inside.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"register_device\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \"Acme\",\n        \"model\": \"Box\",\n        \"manuals\": [\n          \"../secret.pdf\",\n          \"shelly/../shelly/dimmer_2_guide.pdf\"\n        ]\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999988,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_13",
+      "_type": "request",
+      "parentId": "fld_uc02",
+      "name": "10 Everything at once",
+      "description": "Several reasons are returned together.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"register_device\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \"Shelly\",\n        \"model\": \"Dimmer 2\",\n        \"manuals\": [\n          \"shelly/dimmer_2_guide.pdf\",\n          \"missing.pdf\",\n          \"../x.pdf\",\n          \"/etc/passwd\"\n        ]\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999987,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    }
+  ]
+}
