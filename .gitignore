@@ -17,3 +17,7 @@ data/
 
 # Real manuals used for local tests
 manuals/
+!tests/fixtures/manuals/
+
+# Embedding model files (downloaded, see docs/technical_spec.md section 7)
+models/

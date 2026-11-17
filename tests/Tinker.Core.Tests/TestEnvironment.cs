@@ -1,0 +1,199 @@
+using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
+using Tinker.Core.Embeddings;
+using Tinker.Core.Manuals;
+using Tinker.Core.Models;
+using Tinker.Core.Registration;
+using Tinker.Core.Storage;
+using UglyToad.PdfPig.Core;
+using UglyToad.PdfPig.Writer;
+
+namespace Tinker.Core.Tests;
+
+/// <summary>A temporary manuals folder, a database and a registrar wired with the real pieces. Failures are injected by wrapping a port.</summary>
+public sealed class TestEnvironment : IDisposable
+{
+    public string Root { get; } = Path.Combine(Path.GetTempPath(), "tinker-tests-" + Guid.NewGuid().ToString("N"));
+    public string ManualsPath => Path.Combine(Root, "manuals");
+    public string DatabasePath => Path.Combine(Root, "data", "inventory.db");
+    public SqliteDatabase Database { get; }
+    public IInventory Inventory { get; }
+    public IManualsIndex Index { get; }
+    public ListLoggerProvider Logs { get; } = new();
+
+    public TestEnvironment(
+        Func<IInventory, IInventory>? wrapInventory = null,
+        Func<IManualsIndex, IManualsIndex>? wrapIndex = null,
+        IManualTextExtractor? extractor = null,
+        IEmbeddingGenerator<string, Embedding<float>>? embeddings = null,
+        string? brokenDatabasePath = null)
+    {
+        Directory.CreateDirectory(ManualsPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(DatabasePath)!);
+        Database = new SqliteDatabase(brokenDatabasePath ?? DatabasePath);
+        if (brokenDatabasePath is null)
+        {
+            Database.Initialize();
+        }
+
+        var generator = embeddings ?? new HashEmbeddingGenerator();
+        Inventory = new SqliteInventory(Database);
+        Index = new SqliteManualsIndex(Database, generator);
+        Registrar = new DeviceRegistrar(
+            new ManualPathResolver(ManualsPath),
+            wrapInventory?.Invoke(Inventory) ?? Inventory,
+            wrapIndex?.Invoke(Index) ?? Index,
+            Database,
+            extractor ?? new PdfPigTextExtractor(),
+            generator,
+            LoggerFactory.Create(b => b.AddProvider(Logs)).CreateLogger<DeviceRegistrar>());
+    }
+
+    public DeviceRegistrar Registrar { get; }
+
+    /// <summary>Devices hold lists, so records compare by reference: compare their JSON instead.</summary>
+    public static string Json(Device device) => System.Text.Json.JsonSerializer.Serialize(device);
+
+    /// <summary>Copies a public manual of <c>tests/fixtures/manuals</c> into the manuals folder, at the same relative path.</summary>
+    public string Fixture(string relativePath, string? storeAs = null)
+    {
+        var target = Path.Combine(ManualsPath, storeAs ?? relativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "fixtures", "manuals", relativePath), target);
+        return storeAs ?? relativePath;
+    }
+
+    /// <summary>A small generated PDF with one text per page; an empty text gives a page with no text.</summary>
+    public string Pdf(string relativePath, params string[] pages)
+    {
+        var builder = new PdfDocumentBuilder();
+        var font = builder.AddStandard14Font(UglyToad.PdfPig.Fonts.Standard14Fonts.Standard14Font.Helvetica);
+        foreach (var text in pages)
+        {
+            var page = builder.AddPage(UglyToad.PdfPig.Content.PageSize.A4);
+            if (text.Length > 0)
+            {
+                page.AddText(text, 12, new PdfPoint(25, 700), font);
+            }
+        }
+
+        var target = Path.Combine(ManualsPath, relativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        File.WriteAllBytes(target, builder.Build());
+        return relativePath;
+    }
+
+    public Task<RegistrationResult> Register(string brand, string model, params string[] manuals) =>
+        Registrar.RegisterAsync(new Device { Brand = brand, Model = model, Manuals = manuals });
+
+    public long CountDevices() => Scalar<long>("SELECT COUNT(*) FROM devices");
+
+    public long CountChunks(long? deviceId = null) =>
+        deviceId is null ? Scalar<long>("SELECT COUNT(*) FROM chunks") : Scalar<long>($"SELECT COUNT(*) FROM chunks WHERE device_id = {deviceId}");
+
+    public List<(long DeviceId, string Manual, int Page, string Text)> Chunks(long? deviceId = null)
+    {
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT device_id, manual, page, text FROM chunks" + (deviceId is null ? "" : $" WHERE device_id = {deviceId}") + " ORDER BY chunk_id";
+        using var reader = command.ExecuteReader();
+        var rows = new List<(long, string, int, string)>();
+        while (reader.Read())
+        {
+            rows.Add((reader.GetInt64(0), reader.GetString(1), reader.GetInt32(2), reader.GetString(3)));
+        }
+
+        return rows;
+    }
+
+    /// <summary>What is stored, to prove that a rejection left everything as it was.</summary>
+    public string Snapshot() =>
+        string.Join('|', Scalar<long>("SELECT COUNT(*) FROM devices"), Scalar<long>("SELECT COUNT(*) FROM device_manuals"),
+            Scalar<long>("SELECT COUNT(*) FROM device_urls"), Scalar<long>("SELECT COUNT(*) FROM chunks"),
+            Scalar<string>("SELECT IFNULL(GROUP_CONCAT(chunk_id), '') FROM (SELECT chunk_id FROM chunks ORDER BY chunk_id)"));
+
+    private T Scalar<T>(string sql)
+    {
+        using var connection = Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        return (T)Convert.ChangeType(command.ExecuteScalar()!, typeof(T), System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private SqliteConnection Open()
+    {
+        var connection = new SqliteConnection($"Data Source={DatabasePath};Pooling=False");
+        connection.Open();
+        return connection;
+    }
+
+    public void Dispose()
+    {
+        SqliteConnection.ClearAllPools();
+        if (Directory.Exists(Root))
+        {
+            Directory.Delete(Root, recursive: true);
+        }
+    }
+}
+
+public sealed class ListLoggerProvider : ILoggerProvider
+{
+    public List<(LogLevel Level, string Message)> Entries { get; } = [];
+
+    public ILogger CreateLogger(string categoryName) => new Logger(Entries);
+
+    public void Dispose()
+    {
+    }
+
+    private sealed class Logger(List<(LogLevel, string)> entries) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            entries.Add((logLevel, formatter(state, exception)));
+    }
+}
+
+public sealed class ThrowingIndex(IManualsIndex inner) : IManualsIndex
+{
+    /// <summary>Writes the chunks and then fails, like an indexing that breaks half way.</summary>
+    public async Task AddAsync(long deviceId, IReadOnlyList<IndexedChunk> chunks, CancellationToken cancellationToken = default)
+    {
+        await inner.AddAsync(deviceId, chunks, cancellationToken);
+        throw new InvalidOperationException("The index broke.");
+    }
+
+    public Task DeleteByDeviceAsync(long deviceId, CancellationToken cancellationToken = default) => inner.DeleteByDeviceAsync(deviceId, cancellationToken);
+}
+
+/// <summary>
+/// While <see cref="Blind"/> the checks find nothing, as if they had run just before another registration committed.
+/// The insert then hits the UNIQUE constraints and sees the world as it is again.
+/// </summary>
+public sealed class RacyInventory(IInventory inner) : IInventory
+{
+    public bool Blind { get; set; }
+
+    public Task<Device?> FindByBrandAndModelAsync(string brand, string model, CancellationToken cancellationToken = default) =>
+        Blind ? Task.FromResult<Device?>(null) : inner.FindByBrandAndModelAsync(brand, model, cancellationToken);
+
+    public Task<Device?> FindByManualAsync(string manual, CancellationToken cancellationToken = default) =>
+        Blind ? Task.FromResult<Device?>(null) : inner.FindByManualAsync(manual, cancellationToken);
+
+    public async Task<Device> InsertAsync(Device device, CancellationToken cancellationToken = default)
+    {
+        Blind = false;
+        return await inner.InsertAsync(device, cancellationToken);
+    }
+}
+
+public sealed class ThrowingExtractor : IManualTextExtractor
+{
+    public Task<IReadOnlyList<string>> ExtractPagesAsync(string fullPath, CancellationToken cancellationToken = default) =>
+        throw new InvalidOperationException("The manual could not be read.");
+}

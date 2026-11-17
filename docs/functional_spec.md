@@ -118,6 +118,7 @@ The registration is rejected if it breaks any of these rules:
 - **Every manual exists** in the manuals folder.
 - **The device is not already registered.** Two devices are the same when they have the same brand and the same model, ignoring upper and lower case and the spaces before, after and between words.
 - **Every manual is new.** A manual can belong to only one device.
+- **The status is valid** when it is given: one of `active`, `stored`, `sold`, `discarded` (`invalid_fields`).
 
 **Errors.** There is one error code per rule: `invalid_fields`, `manual_not_allowed`, `manual_not_found`, `device_exists` and `manual_in_use`, plus `failed` for unexpected failures. When a rule can be broken in several ways, the message says which one and what to fix. `device_exists` and `manual_in_use` also return the device already registered. No error reveals the location of the manuals folder nor whether a file outside it exists.
 
@@ -305,5 +306,5 @@ The client gets an empty result, or the search fails. Either way it is told what
 ## 3. Open questions
 
 - **Case sensitivity.** Whether text is compared ignoring upper and lower case, and where. Today it is assumed in `find_devices`, in `delete_device` (which matches as `find_devices` does) and in the duplicate rule of `register_device` (brand and model). To decide once, for all the tools.
-- **Language of the manuals and the queries.** Whether the search must work with manuals and queries in languages other than English (e.g. Spanish manuals, queries in Spanish, or a query in a different language than the manual). An English-only search is simpler, smaller and faster; a multilingual one is not. It depends on the embedding model, which is an open question in the technical spec.
+- **Language of the manuals and the queries.** **Decided for now: English only.** All manuals are assumed to be in English, and so are the queries (the client translates them if needed). That allowed an English embedding model (technical spec, section 7). If manuals in other languages appear, the model must change and the index be rebuilt; the steps are in the technical spec.
 - **The `query` of `search_manuals`.** To review what the query is and how it is used: free natural-language text matched by meaning (as drafted in the input table), or something else (e.g. keywords, filters, a mix of both). Not clear yet; to revisit when the search is implemented and the vector store and embedding model are chosen.

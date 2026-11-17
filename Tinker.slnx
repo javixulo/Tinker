@@ -1,5 +1,10 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Tinker.Core/Tinker.Core.csproj" />
     <Project Path="src/Tinker.Mcp/Tinker.Mcp.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Tinker.Core.Tests/Tinker.Core.Tests.csproj" />
+    <Project Path="tests/Tinker.Mcp.Tests/Tinker.Mcp.Tests.csproj" />
   </Folder>
 </Solution>
