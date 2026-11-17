@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Tinker.Mcp/Tinker.Mcp.csproj" />
+  </Folder>
+</Solution>

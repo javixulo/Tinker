@@ -3,5 +3,17 @@
 .github-token
 *.token
 
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# Local data
+data/
+
 # macOS
 .DS_Store
+
+# Real manuals used for local tests
+manuals/
