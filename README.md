@@ -157,7 +157,7 @@ Run one level with `dotnet test --project tests/Tinker.UnitTests` (or the name o
 
 [![CI](https://github.com/javixulo/Tinker/actions/workflows/ci.yml/badge.svg)](https://github.com/javixulo/Tinker/actions/workflows/ci.yml)
 
-GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) builds the solution once on every push to `main` and every pull request, then runs the four test projects in parallel. Another job builds the Docker image, runs `scripts/smoke-test.sh` against it and, on pushes to `main`, the system tests (you can run it too: `docker build -t tinker-mcp . && scripts/smoke-test.sh tinker-mcp`). The model tests download the same pinned embedding model that the Docker image ships. Publishing the Docker image is not automated yet. More detail in [`docs/technical_spec.md`](docs/technical_spec.md), section 8.
+GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) builds the solution once on every push to `main` and every pull request, then runs the four test projects in parallel. Another job builds the Docker image, runs `scripts/smoke-test.sh` against it and, on pushes to `main`, the system tests (you can run it too: `docker build -t tinker-mcp . && scripts/smoke-test.sh tinker-mcp`). The model tests download the same pinned embedding model that the Docker image ships. Publishing the Docker image is not automated yet. A manual workflow, [`release-dry-run.yml`](.github/workflows/release-dry-run.yml), rehearses publishing the image (multi-platform build, tags, push and pull, smoke and system tests) against a throwaway registry inside the job. It publishes nothing. More detail in [`docs/technical_spec.md`](docs/technical_spec.md), section 8.
 
 ## Architecture
 

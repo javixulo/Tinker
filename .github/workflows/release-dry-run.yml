@@ -1,0 +1,105 @@
+name: Release (dry run)
+
+# A rehearsal of publishing the Docker image. It is launched by hand only, and it publishes NOTHING: it has no login to
+# any registry and no permission to write packages. The image is pushed to a throwaway registry that runs inside the job
+# and disappears with it, pulled back from there, and tested. What it cannot check is the login and the permissions of the
+# real registry (ghcr.io), which is only known by publishing for real.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to rehearse (the image gets this tag; `latest` is added only to versions without a suffix)
+        required: true
+        default: 0.0.1-beta.1
+      platforms:
+        description: Platforms to build
+        required: true
+        default: linux/amd64,linux/arm64
+
+permissions:
+  contents: read
+
+jobs:
+  rehearse:
+    runs-on: ubuntu-latest
+    services:
+      # The throwaway registry. It is only reachable from this job.
+      registry:
+        image: registry:2
+        ports:
+          - 5000:5000
+    env:
+      VERSION: ${{ inputs.version }}
+      PLATFORMS: ${{ inputs.platforms }}
+    steps:
+      - name: Check the version
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "The version '$VERSION' is not a semantic version (for example 0.0.1-beta.1)." >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+
+      # network=host lets the builder reach the registry that runs next to the job on localhost:5000.
+      - uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: network=host
+
+      - name: Work out the tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: localhost:5000/tinker
+          tags: |
+            type=raw,value=${{ inputs.version }}
+            type=raw,value=latest,enable=${{ !contains(inputs.version, '-') }}
+          labels: |
+            org.opencontainers.image.version=${{ inputs.version }}
+
+      - name: Build and push to the throwaway registry
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ inputs.platforms }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Pull the image back from the registry
+        run: docker pull "localhost:5000/tinker:$VERSION"
+
+      - name: Smoke test of the pulled image
+        run: scripts/smoke-test.sh "localhost:5000/tinker:$VERSION"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: System tests on the pulled image
+        env:
+          TINKER_SYSTEM_IMAGE: localhost:5000/tinker:${{ inputs.version }}
+        run: dotnet run --project tests/Tinker.SystemTests -c Release
+
+      - name: Summary
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          {
+            echo "## Release dry run: $VERSION"
+            echo
+            echo "**Nothing was published.** The image went to a registry that lives only inside this job."
+            echo
+            echo "Tags it would get:"
+            echo '```'
+            echo "$TAGS" | sed 's#localhost:5000/tinker#ghcr.io/javixulo/tinker#'
+            echo '```'
+            echo "Platforms: \`$PLATFORMS\`"
+            echo
+            echo "Manifest as pushed to the throwaway registry:"
+            echo '```'
+            docker buildx imagetools inspect "localhost:5000/tinker:$VERSION"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

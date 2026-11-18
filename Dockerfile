@@ -1,5 +1,7 @@
 # syntax=docker/dockerfile:1
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# The build and model stages always run on the machine that builds (the output is the same for every architecture: portable
+# assemblies and data files), so a multi-platform build does not compile under emulation.
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY global.json Directory.Build.props ./
 COPY src/Tinker.Core/Tinker.Core.csproj src/Tinker.Core/
@@ -7,11 +9,14 @@ COPY src/Tinker.Mcp/Tinker.Mcp.csproj src/Tinker.Mcp/
 RUN dotnet restore src/Tinker.Mcp
 COPY src/ src/
 RUN dotnet publish src/Tinker.Mcp -c Release --no-restore -o /app
+# ONNX Runtime and SQLite come with their native libraries for every platform (about 300 MB). A container always runs
+# Linux, on Intel/AMD or ARM, so only those two are kept.
+RUN find /app/runtimes -mindepth 1 -maxdepth 1 ! -name linux-x64 ! -name linux-arm64 -exec rm -rf {} +
 
 # The embedding model (technical spec, section 7). Pinned to one revision of the Hugging Face repository and checked
 # against its SHA-256, so the image never gets a different model without a build failure. It is its own stage and comes
 # before the code, so the cache keeps it between builds.
-FROM alpine:3.22 AS model
+FROM --platform=$BUILDPLATFORM alpine:3.22 AS model
 ARG MODEL_REVISION=5c38ec7c405ec4b44b94cc5a9bb96e735b38267a
 ARG MODEL_ONNX_SHA256=828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35
 ARG MODEL_VOCAB_SHA256=07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3
