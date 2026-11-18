@@ -1,3 +1,4 @@
+using Tinker.Core.Manuals;
 using Tinker.Core.Models;
 using Xunit;
 
@@ -129,7 +130,7 @@ public sealed class RegisterDeviceTests : IDisposable
         Assert.NotEmpty(chunks);
         Assert.All(chunks, c =>
         {
-            Assert.InRange(c.Text.Length, 1, 1000);
+            Assert.InRange(c.Text.Length, 1, TextChunker.DefaultMax);
             Assert.True(c.Page >= 1);
         });
         Assert.True(_env.CountChunks() == chunks.Count);
@@ -137,7 +138,7 @@ public sealed class RegisterDeviceTests : IDisposable
 
     [Fact]
     [Trait("Criteria", "UC-01.5")]
-    public async Task A_page_with_text_is_split_in_overlapping_chunks_of_about_1000_characters()
+    public async Task A_page_with_text_is_split_in_chunks_of_about_500_characters()
     {
         var text = string.Join(' ', Enumerable.Range(0, 400).Select(i => "word" + i));
         var manual = _env.Pdf("long.pdf", text);
@@ -147,7 +148,7 @@ public sealed class RegisterDeviceTests : IDisposable
         var chunks = _env.Chunks();
         Assert.True(chunks.Count > 1);
         Assert.All(chunks, c => Assert.Equal(1, c.Page));
-        Assert.All(chunks, c => Assert.True(c.Text.Length <= 1000));
+        Assert.All(chunks, c => Assert.True(c.Text.Length <= TextChunker.DefaultMax));
     }
 
     [Fact]

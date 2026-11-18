@@ -15,8 +15,8 @@ data/
 # macOS
 .DS_Store
 
-# Real manuals used for local tests
-manuals/
+# Real manuals used for local tests (anchored: an unanchored "manuals/" also matched src/Tinker.Core/Manuals/, as git ignores case here)
+/manuals/
 !tests/fixtures/manuals/
 
 # Embedding model files (downloaded, see docs/technical_spec.md section 7)
