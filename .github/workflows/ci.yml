@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  # One build; the three test jobs below reuse its output instead of compiling again.
+  # One build. Its artifact is what the three test jobs run: they do not check out, restore or compile anything.
   build:
     runs-on: ubuntu-latest
     steps:
@@ -22,14 +22,16 @@ jobs:
       - name: Build
         run: dotnet build -c Release
 
-      # A tar keeps the executable bits that upload-artifact would drop (the test projects are executables).
-      - name: Pack the build output
-        run: tar -cf build.tar src/*/bin src/*/obj tests/*/bin tests/*/obj
+      # The test projects are self-contained executables: each bin/Release folder holds the tests, the code under test,
+      # its dependencies and the fixtures. Nothing else is needed to run them. A tar keeps the executable bits that
+      # upload-artifact would drop.
+      - name: Pack the test executables
+        run: tar -czf tests.tar tests/*/bin/Release
 
       - uses: actions/upload-artifact@v4
         with:
-          name: build
-          path: build.tar
+          name: tests
+          path: tests.tar
           retention-days: 1
 
   # Logic tests: deterministic, hash embeddings, no network.
@@ -37,50 +39,38 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
       - uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          dotnet-version: 10.0.x
 
       - uses: actions/download-artifact@v4
         with:
-          name: build
+          name: tests
 
-      - name: Unpack the build output
-        run: tar -xf build.tar
-
-      # The build output is reused, but the NuGet packages (the test framework) are not on this machine.
-      - name: Restore packages
-        run: dotnet restore tests/Tinker.Core.Tests
+      - name: Unpack the test executables
+        run: tar -xzf tests.tar
 
       - name: Test
-        run: dotnet test --project tests/Tinker.Core.Tests -c Release --no-build
+        run: ./tests/Tinker.Core.Tests/bin/Release/net10.0/Tinker.Core.Tests
 
   # Contract tests: the real server in process, talked to with an MCP client over HTTP.
   contract-tests:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
       - uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          dotnet-version: 10.0.x
 
       - uses: actions/download-artifact@v4
         with:
-          name: build
+          name: tests
 
-      - name: Unpack the build output
-        run: tar -xf build.tar
-
-      # The build output is reused, but the NuGet packages (the test framework) are not on this machine.
-      - name: Restore packages
-        run: dotnet restore tests/Tinker.Mcp.Tests
+      - name: Unpack the test executables
+        run: tar -xzf tests.tar
 
       - name: Test
-        run: dotnet test --project tests/Tinker.Mcp.Tests -c Release --no-build
+        run: ./tests/Tinker.Mcp.Tests/bin/Release/net10.0/Tinker.Mcp.Tests
 
   # The tests that run the real embedding model (technical spec, section 8). Same pinned revision and checksums as the
   # Dockerfile, so CI tests the model that the image ships. The files are cached between runs.
@@ -93,18 +83,16 @@ jobs:
       MODEL_VOCAB_SHA256: 07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3
       TINKER_TEST_MODEL_PATH: ${{ github.workspace }}/models/bge-small-en-v1.5
     steps:
-      - uses: actions/checkout@v4
-
       - uses: actions/setup-dotnet@v4
         with:
-          global-json-file: global.json
+          dotnet-version: 10.0.x
 
       - uses: actions/download-artifact@v4
         with:
-          name: build
+          name: tests
 
-      - name: Unpack the build output
-        run: tar -xf build.tar
+      - name: Unpack the test executables
+        run: tar -xzf tests.tar
 
       - name: Cache the embedding model
         id: model-cache
@@ -126,9 +114,5 @@ jobs:
           echo "${MODEL_ONNX_SHA256}  models/bge-small-en-v1.5/model.onnx" | sha256sum -c -
           echo "${MODEL_VOCAB_SHA256}  models/bge-small-en-v1.5/vocab.txt" | sha256sum -c -
 
-      # The build output is reused, but the NuGet packages (the test framework) are not on this machine.
-      - name: Restore packages
-        run: dotnet restore tests/Tinker.RealModel.Tests
-
       - name: Test
-        run: dotnet test --project tests/Tinker.RealModel.Tests -c Release --no-build
+        run: ./tests/Tinker.RealModel.Tests/bin/Release/net10.0/Tinker.RealModel.Tests
