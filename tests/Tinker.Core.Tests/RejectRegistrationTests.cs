@@ -73,6 +73,35 @@ public sealed class RejectRegistrationTests : IDisposable
         Assert.Equal("device_exists", Assert.Single(result.Errors).Code);
     }
 
+    [Theory]
+    [Trait("Criteria", "UC-02.1,2")]
+    [InlineData("Philips", "Hué", "Philips", "hue")]
+    [InlineData("Philips", "Hue", "PHILIPS", "HUÉ")]
+    [InlineData("Philips Hué", "Bridge", "philips  hue", " BRIDGE ")]
+    [InlineData("Müller", "Küche 2", "muller", "kuche 2")]
+    public async Task Accents_do_not_make_a_different_device(string brand, string model, string otherBrand, string otherModel)
+    {
+        var existing = await Registered(brand, model, _env.Pdf("a.pdf", "Alpha."));
+        var other = _env.Pdf("b.pdf", "Beta.");
+
+        var result = await Rejected(() => _env.Register(otherBrand, otherModel, other));
+
+        var error = Assert.Single(result.Errors);
+        Assert.Equal("device_exists", error.Code);
+        Assert.Equal(TestEnvironment.Json(existing), TestEnvironment.Json(error.Device!));
+    }
+
+    [Fact]
+    [Trait("Criteria", "UC-02.1,2")]
+    public async Task Accents_are_not_the_only_thing_ignored_other_characters_still_count()
+    {
+        await Registered("Philips", "Hue-2", _env.Pdf("a.pdf", "Alpha."));
+
+        var result = await _env.Register("Philips", "Hue 2", _env.Pdf("b.pdf", "Beta."));
+
+        Assert.True(result.Ok);
+    }
+
     [Fact]
     [Trait("Criteria", "UC-02.3")]
     public async Task Registering_twice_is_rejected_the_second_time()

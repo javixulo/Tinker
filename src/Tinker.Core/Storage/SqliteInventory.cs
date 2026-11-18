@@ -12,8 +12,8 @@ public sealed class SqliteInventory(SqliteDatabase database) : IInventory
         database.UseAsync(async (connection, transaction) =>
         {
             using var command = Command(connection, transaction, "SELECT device_id FROM devices WHERE brand_key = $brand AND model_key = $model");
-            command.Parameters.AddWithValue("$brand", TextKeys.Normalize(brand));
-            command.Parameters.AddWithValue("$model", TextKeys.Normalize(model));
+            command.Parameters.AddWithValue("$brand", TextKeys.Fold(brand));
+            command.Parameters.AddWithValue("$model", TextKeys.Fold(model));
             return await LoadAsync(connection, transaction, await command.ExecuteScalarAsync(cancellationToken), cancellationToken);
         });
 
@@ -64,8 +64,8 @@ public sealed class SqliteInventory(SqliteDatabase database) : IInventory
                 {
                     command.Parameters.AddWithValue("$brand", device.Brand);
                     command.Parameters.AddWithValue("$model", device.Model);
-                    command.Parameters.AddWithValue("$brand_key", TextKeys.Normalize(device.Brand));
-                    command.Parameters.AddWithValue("$model_key", TextKeys.Normalize(device.Model));
+                    command.Parameters.AddWithValue("$brand_key", TextKeys.Fold(device.Brand));
+                    command.Parameters.AddWithValue("$model_key", TextKeys.Fold(device.Model));
                     command.Parameters.AddWithValue("$device_type", (object?)device.DeviceType ?? DBNull.Value);
                     command.Parameters.AddWithValue("$color", (object?)device.Color ?? DBNull.Value);
                     command.Parameters.AddWithValue("$location", (object?)device.Location ?? DBNull.Value);

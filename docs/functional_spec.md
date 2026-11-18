@@ -116,7 +116,7 @@ The registration is rejected if it breaks any of these rules:
 - **Required fields are provided.** Brand, model and at least one manual. A value that is empty or has only spaces counts as not provided.
 - **Every manual is inside the manuals folder.** An absolute path, a path that contains `..`, `~` or encoded sequences, or a link that points outside the folder is not allowed.
 - **Every manual exists** in the manuals folder.
-- **The device is not already registered.** Two devices are the same when they have the same brand and the same model, ignoring upper and lower case and the spaces before, after and between words.
+- **The device is not already registered.** Two devices are the same when they have the same brand and the same model, ignoring upper and lower case, accents and the spaces before, after and between words (`Philips Hué` and `philips  hue` are the same device). It is the same comparison `find_devices` uses.
 - **Every manual is new.** A manual can belong to only one device.
 - **The status is valid** when it is given: one of `active`, `stored`, `sold`, `discarded` (`invalid_fields`).
 
@@ -131,7 +131,7 @@ In every criterion below, "rejected" means: `ok=false` with the errors listed, n
 | # | Name | Given | When | Then |
 |---|---|---|---|---|
 | 1 | Device already registered | A device is registered with brand "Samsung" and model "QE55Q60" | The client registers another device with the same brand and model, even with a different manual | Rejected, with a `device_exists` error that returns the device already registered, with all its information |
-| 2 | Same device written differently | The same device is registered | The client registers brand "samsung" and model " qe55q60 " | Rejected, with a `device_exists` error that returns the device already registered, with all its information |
+| 2 | Same device written differently | The same device is registered | The client registers brand "samsung" and model " qe55q60 ", or, for a registered `Philips Hué`, brand "PHILIPS" and model "hue" | Rejected, with a `device_exists` error that returns the device already registered, with all its information |
 | 3 | Registering twice | A valid registration has succeeded | The same registration is sent again | The second one is rejected as in criterion 1, and the inventory has only one device |
 | 4 | Required fields missing | | The client does not provide all the required fields: brand, model and at least one manual (e.g. an empty brand, a model made only of spaces, or no manual) | Rejected, with an `invalid_fields` error whose message lists the fields that are missing |
 | 5 | Manual not found | `shelly/missing.pdf` does not exist in the manuals folder | The client registers a device with one or more manuals that do not exist | Rejected, with a `manual_not_found` error that lists all of them. It is not a `manual_not_allowed` error: the path is allowed, the file is not there |
@@ -305,6 +305,6 @@ The client gets an empty result, or the search fails. Either way it is told what
 
 ## 3. Open questions
 
-- **Case and accents.** **Decided for `find_devices`** (and so for `delete_device`, which matches as it does): text is compared in lowercase and without accents. **Still to decide:** the duplicate rule of `register_device` (brand and model) ignores case and spaces but not accents, so `Philips Hué` and `Philips Hue` are two devices while a lookup treats them as the same. To align it, the stored keys would have to be rebuilt (technical spec, section 7).
+- **Case and accents.** **Decided, for every tool:** text is compared in lowercase, without accents and ignoring the spaces before, after and between words. It applies to `find_devices`, to `delete_device` (which matches as it does) and to the duplicate rule of `register_device` (brand and model). One function in the code, `TextKeys.Fold`.
 - **Language of the manuals and the queries.** **Decided for now: English only.** All manuals are assumed to be in English, and so are the queries (the client translates them if needed). That allowed an English embedding model (technical spec, section 7). If manuals in other languages appear, the model must change and the index be rebuilt; the steps are in the technical spec.
 - **The `query` of `search_manuals`.** To review what the query is and how it is used: free natural-language text matched by meaning (as drafted in the input table), or something else (e.g. keywords, filters, a mix of both). Not clear yet; to revisit when the search is implemented and the vector store and embedding model are chosen.

@@ -154,8 +154,8 @@ CREATE TABLE devices (
   device_id         INTEGER PRIMARY KEY AUTOINCREMENT,
   brand             TEXT NOT NULL,
   model             TEXT NOT NULL,
-  brand_key         TEXT NOT NULL,
-  model_key         TEXT NOT NULL,
+  brand_key         TEXT NOT NULL,   -- TextKeys.Fold(brand)
+  model_key         TEXT NOT NULL,   -- TextKeys.Fold(model)
   device_type       TEXT,
   color             TEXT,
   location          TEXT,
@@ -177,14 +177,14 @@ CREATE TABLE device_urls (
 
 - **`AUTOINCREMENT`** so a `device_id` is never reused after a deletion. Without it, a client holding an old id from `find_devices` could hit a new, different device.
 - **The database is the guarantee.** The checks in code give clear reasons, but the `UNIQUE` constraints decide: two simultaneous registrations cannot both pass.
-- `brand` and `model` are stored as the client wrote them. `brand_key` and `model_key` are the normalized values.
-- **Keys.** `brand_key` and `model_key` are the brand and model trimmed, with each run of whitespace collapsed to one space, and compared ignoring case. Nothing else (no hyphens, no accents): `TextKeys.Normalize`. They only serve the duplicate rule of `register_device`.
-- **Lookups.** `find_devices` does not use SQL to compare text. `IInventory.ListAllAsync` returns every device and `DeviceFinder` filters in memory with `TextKeys.Fold` (`Normalize` plus removing the accents: decompose to FormD, drop the non-spacing marks, compose to FormC), because SQLite's `COLLATE NOCASE` ignores the case of ASCII letters only. A home inventory has tens of devices, so reading them all costs nothing; if it ever grows, store a folded key per column (see section 9).
+- `brand` and `model` are stored as the client wrote them. `brand_key` and `model_key` are the folded values.
+- **Keys.** `brand_key` and `model_key` are `TextKeys.Fold` of the brand and the model: trimmed, each run of whitespace collapsed to one space, lowercase and without accents (decompose to FormD, drop the non-spacing marks, compose to FormC). Nothing else is ignored (no hyphens). `Fold` is the **only** text comparison of the project, so the duplicate rule of `register_device`, `find_devices` and `delete_device` always agree: `Philips Hué` and `Philips Hue` are one device. SQLite's `COLLATE NOCASE` ignores the case of ASCII letters only and cannot remove accents, which is why the keys are computed in code and stored.
+- **Lookups.** `find_devices` does not use SQL to compare text. `IInventory.ListAllAsync` returns every device and `DeviceFinder` filters in memory with `TextKeys.Fold`. A home inventory has tens of devices, so reading them all costs nothing; if it ever grows, store a folded key per column (see section 9).
 - **Races.** If two registrations pass the checks together, the `UNIQUE` constraints decide: the loser is rolled back and gets `device_exists` or `manual_in_use`, as if the check had caught it.
 - **Queries.** They are built from an allowlist of columns, with every value as a parameter. A value from the client is never concatenated into SQL.
 - Manuals and URLs come back in the order they were given (insertion order).
 - **Per connection:** `PRAGMA foreign_keys = ON` (SQLite does not keep it between connections), WAL mode and a busy timeout.
-- **Schema versions** with `PRAGMA user_version` and ordered migration scripts embedded in the assembly, applied in a transaction at startup. A database with a newer version than the code stops the startup with a clear message.
+- **Schema versions** with `PRAGMA user_version` and ordered migration scripts embedded in the assembly, applied in a transaction at startup. A database with a newer version than the code stops the startup with a clear message. The system is not in production yet, so the schema may still change without migrating old data: delete the database and register again.
 
 **Manuals index.** One port, `IManualsIndex`:
 
@@ -272,7 +272,7 @@ To be decided and written here as they are made.
 - **Unreadable or unsupported manuals.** What `register_device` does with a manual that exists but cannot be used: not a PDF, corrupt, or protected by a password. The functional spec has no criterion for it. Today the extraction exception is caught by the guard and the client gets `failed` ("tell the user instead of retrying"), with nothing stored; that is misleading, because the cause is the file and not the server. It needs a use case or criterion there, and probably its own error code.
 - **Case-insensitive file systems.** On macOS (and Windows) `Shelly/A.pdf` and `shelly/a.pdf` are the same file but would be stored as two manuals. Docker on the NAS is Linux, so it is not a problem there; to decide whether the resolver should canonicalize the case.
 - **Registration time.** Registering reads and embeds every manual inside the call. On the NAS CPU, a long manual may take longer than a client is willing to wait. Options: leave it synchronous and measure, report progress, or register in the background and return before the content is searchable (which would change the functional contract).
-- **Comparing text (case and accents).** Decided for lookups: `TextKeys.Fold` in code, over all the devices (section 7, "Lookups"). Open: whether `brand_key` and `model_key` should use it too (the duplicate rule would then ignore accents, and the keys of existing rows would have to be recomputed in a migration), and whether to store folded keys if the inventory ever grows. Goes with the open question in the functional spec, section 3.
+- **Comparing text (case and accents).** Decided: `TextKeys.Fold` everywhere (section 7, "Keys"). Open: whether to store folded keys for the other columns (`device_type`, `color`, `location`) if the inventory ever grows, so lookups can use SQL instead of reading every device.
 - **Limit of `n_results`.** Whether there is an upper bound (for example 20), so a client cannot ask for the whole manual.
 - **Rebuilding the index.** Whether there is a maintenance command (or a startup mode) that re-derives the index from the inventory and the manuals folder, for a changed model or a damaged index.
 - **Slower real-model tests.** They run with the rest for now (a few seconds). If they get slow, exclude the `RealModel` trait from the normal run.
