@@ -18,16 +18,31 @@ public sealed record ManualPathResult(ManualRejection Rejection, string? Relativ
 }
 
 /// <summary>
+/// The manuals folder as the services see it (technical spec, section 5): the only way to turn a path from a client into a
+/// file, and to ask whether that file exists. A port, so the services can be tested without a disk.
+/// </summary>
+public interface IManualFiles
+{
+    /// <summary>Judges the path of a manual given by a client. It never looks at whether the file exists.</summary>
+    ManualPathResult Resolve(string manual);
+
+    /// <summary>Whether the real file of an allowed manual exists.</summary>
+    bool Exists(ManualPathResult manual);
+}
+
+/// <summary>
 /// The only place that builds a manual path from client input (technical spec, section 5). The path is judged by its
 /// text first (absolute, `~`, encoded sequences, `..`) and then by where it ends up once links are followed in every
 /// component. It never looks at whether the file exists, so the answer does not reveal what exists outside the folder.
 /// </summary>
-public sealed partial class ManualPathResolver(string manualsPath)
+public sealed partial class ManualPathResolver(string manualsPath) : IManualFiles
 {
     private const int MaxLinkHops = 40;
     private static readonly char[] Separators = ['/', '\\'];
 
     private readonly string _manualsPath = Path.GetFullPath(manualsPath);
+
+    public bool Exists(ManualPathResult manual) => manual.Allowed && File.Exists(manual.FullPath);
 
     public ManualPathResult Resolve(string manual)
     {

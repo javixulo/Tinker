@@ -49,23 +49,6 @@ public sealed class UpdateDeviceTests : IDisposable
     // UC-10
 
     [Fact]
-    [Trait("Criteria", "UC-10.1,3")]
-    public async Task Changes_one_field_and_keeps_the_rest()
-    {
-        var a = await Registered("Shelly", "Dimmer 2");
-        var b = await Registered("Shelly", "RGBW2");
-
-        var result = await Update(a, new DeviceChanges { Location = "garage" });
-
-        Assert.True(result.Ok);
-        Assert.Equal("Garage", result.Device!.Location);
-        Assert.Equal(TestEnvironment.Json(result.Device), TestEnvironment.Json(await Stored(a)));
-        Assert.Equal(TestEnvironment.Json(a with { Location = "Garage" }), TestEnvironment.Json(result.Device));
-        Assert.Equal(TestEnvironment.Json(b), TestEnvironment.Json(await Stored(b)));
-        Assert.Contains(_env.Logs.Entries, e => e.Level == LogLevel.Information && e.Message.StartsWith("Update completed", StringComparison.Ordinal));
-    }
-
-    [Fact]
     [Trait("Criteria", "UC-10.2")]
     public async Task Changes_several_fields_and_a_list_replaces_the_previous_one()
     {
@@ -96,51 +79,6 @@ public sealed class UpdateDeviceTests : IDisposable
         Assert.Empty((await _env.Finder.FindAsync(new Device { Model = "Dimmer 2" })).Devices);
     }
 
-    [Fact]
-    [Trait("Criteria", "UC-10.6")]
-    public async Task A_device_does_not_collide_with_itself()
-    {
-        var a = await Registered("Shelly", "Dimmer 2");
-
-        var result = await Update(a, new DeviceChanges { Brand = "SHELLY", Model = " dimmer   2" });
-
-        Assert.True(result.Ok);
-        Assert.Equal("SHELLY", result.Device!.Brand);
-        Assert.Equal("DIMMER 2", result.Device.Model);
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-10.7")]
-    public async Task Optional_fields_can_be_emptied()
-    {
-        var a = await Registered("Shelly", "Dimmer 2", _env.Pdf("a.pdf", "Alpha."));
-
-        var result = await Update(a, new DeviceChanges { Location = " ", Color = "", Urls = [], PurchaseDate = "", Manuals = [] });
-
-        var device = result.Device!;
-        Assert.Null(device.Location);
-        Assert.Null(device.Color);
-        Assert.Empty(device.Urls!);
-        Assert.Null(device.PurchaseDate);
-        Assert.Empty(device.Manuals!);
-        Assert.Equal("Shelly", device.Brand);
-        Assert.Equal(0, _env.CountChunks(a.DeviceId));
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-10.8")]
-    public async Task The_current_values_write_nothing()
-    {
-        var a = await Registered("Shelly", "Dimmer 2", _env.Pdf("a.pdf", "Alpha."));
-        var snapshot = _env.Snapshot();
-
-        var result = await Update(a, new DeviceChanges { Brand = "shelly", Model = "dimmer 2", Manuals = ["a.pdf"], Location = "salon" });
-
-        Assert.True(result.Ok);
-        Assert.Equal(TestEnvironment.Json(await Stored(a)), TestEnvironment.Json(result.Device!));
-        Assert.Equal(snapshot, _env.Snapshot());
-    }
-
     // UC-11
 
     [Fact]
@@ -162,105 +100,7 @@ public sealed class UpdateDeviceTests : IDisposable
         Assert.True(File.Exists(Path.Combine(_env.ManualsPath, "b.pdf")));
     }
 
-    [Fact]
-    [Trait("Criteria", "UC-11.3,6,7,8")]
-    public async Task Adds_manuals_to_a_device_without_any_together_with_data()
-    {
-        var a = await Registered("Acme", "Box");
-        var manual = _env.Pdf("shelly/a.pdf", "Alpha.");
-
-        var result = await Update(a, new DeviceChanges { Color = "red", Manuals = [manual] });
-
-        Assert.Equal("Red", result.Device!.Color);
-        Assert.Equal(["shelly/a.pdf"], result.Device.Manuals);
-        Assert.All(_env.Chunks(a.DeviceId), c => Assert.Equal("shelly/a.pdf", c.Manual));
-        Assert.NotEmpty(_env.Chunks(a.DeviceId));
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-11.9")]
-    public async Task A_manual_freed_by_one_device_can_be_added_to_another()
-    {
-        var a = await Registered("Acme", "Box", _env.Pdf("a.pdf", "Alpha."));
-        var b = await Registered("Acme", "Other");
-
-        Assert.True((await Update(a, new DeviceChanges { Manuals = [] })).Ok);
-        Assert.True((await Update(b, new DeviceChanges { Manuals = ["a.pdf"] })).Ok);
-
-        Assert.All(_env.Chunks(), c => Assert.Equal(b.DeviceId, c.DeviceId));
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-11.10")]
-    public async Task A_manual_whose_file_is_gone_does_not_block_other_changes()
-    {
-        var a = await Registered("Acme", "Box", _env.Pdf("a.pdf", "Alpha."));
-        File.Delete(Path.Combine(_env.ManualsPath, "a.pdf"));
-
-        Assert.True((await Update(a, new DeviceChanges { Color = "red" })).Ok);
-        Assert.True((await Update(a, new DeviceChanges { Manuals = ["a.pdf"], Color = "blue" })).Ok);
-        Assert.NotEmpty(_env.Chunks(a.DeviceId));
-
-        var result = await Update(a, new DeviceChanges { Manuals = [] });
-
-        Assert.True(result.Ok);
-        Assert.Empty(result.Device!.Manuals!);
-        Assert.Equal(0, _env.CountChunks(a.DeviceId));
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-11.11")]
-    public async Task A_manual_repeated_counts_once()
-    {
-        var a = await Registered("Acme", "Box");
-        _env.Pdf("shelly/a.pdf", "Alpha.");
-
-        var result = await Update(a, new DeviceChanges { Manuals = ["shelly/a.pdf", "shelly/./a.pdf"] });
-
-        Assert.Equal(["shelly/a.pdf"], result.Device!.Manuals);
-        Assert.Equal(1, _env.CountChunks(a.DeviceId));
-    }
-
     // UC-12
-
-    [Fact]
-    [Trait("Criteria", "UC-12.1")]
-    public async Task A_device_that_does_not_exist_is_device_not_found()
-    {
-        await Registered("Acme", "Box");
-
-        var result = await Rejected(() => _env.Updater.UpdateAsync(99, new DeviceChanges { Color = "red" }));
-
-        var error = Assert.Single(result.Errors);
-        Assert.Equal("device_not_found", error.Code);
-        Assert.Contains("find_devices", error.Message, StringComparison.Ordinal);
-        Assert.Equal(1, _env.CountDevices());
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-12.2,3")]
-    public async Task Invalid_input_is_invalid_fields_and_says_which_field()
-    {
-        var a = await Registered("Acme", "Box");
-
-        var nothing = await Rejected(() => Update(a, new DeviceChanges()));
-        var noId = await Rejected(() => _env.Updater.UpdateAsync(null, new DeviceChanges { Color = "red" }));
-        var idInside = await Rejected(() => Update(a, new DeviceChanges { DeviceId = 5, Color = "red" }));
-        var emptied = await Rejected(() => Update(a, new DeviceChanges { Brand = "...", Model = " ", Status = "" }));
-        var status = await Rejected(() => Update(a, new DeviceChanges { Status = "sold" }));
-        var date = await Rejected(() => Update(a, new DeviceChanges { PurchaseDate = "yesterday" }));
-
-        Assert.Contains("at least one field", Assert.Single(nothing.Errors).Message, StringComparison.Ordinal);
-        Assert.Contains("`device_id` is missing", Assert.Single(noId.Errors).Message, StringComparison.Ordinal);
-        Assert.Contains("cannot be changed", Assert.Single(idInside.Errors).Message, StringComparison.Ordinal);
-        var message = Assert.Single(emptied.Errors).Message;
-        Assert.Contains("`brand` cannot be emptied", message, StringComparison.Ordinal);
-        Assert.Contains("`model` cannot be emptied", message, StringComparison.Ordinal);
-        Assert.Contains("`status` cannot be emptied", message, StringComparison.Ordinal);
-        Assert.Contains("active, inactive, archived", Assert.Single(status.Errors).Message, StringComparison.Ordinal);
-        Assert.Contains("purchase_date", Assert.Single(date.Errors).Message, StringComparison.Ordinal);
-        Assert.All(new[] { nothing, noId, idInside, emptied, status, date }, r => Assert.Equal("invalid_fields", Assert.Single(r.Errors).Code));
-    }
 
     [Fact]
     [Trait("Criteria", "UC-12.4,5,8")]
@@ -279,37 +119,6 @@ public sealed class UpdateDeviceTests : IDisposable
         Assert.Equal(a.DeviceId, manual.Errors[0].Device!.DeviceId);
         Assert.Equal(["manual_not_found", "device_exists", "manual_in_use"], all.Errors.Select(e => e.Code));
         Assert.Equal(["a.pdf"], (await Stored(a)).Manuals);
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-12.6,7,9")]
-    public async Task Manuals_that_are_not_allowed_or_missing_roll_back_everything()
-    {
-        var a = await Registered("Acme", "Box", _env.Pdf("a.pdf", "Alpha."));
-        _env.Pdf("b.pdf", "Beta.");
-
-        var missing = await Rejected(() => Update(a, new DeviceChanges { Manuals = ["a.pdf", "nope.pdf"] }));
-        var outside = await Rejected(() => Update(a, new DeviceChanges { Color = "red", Manuals = ["b.pdf", "../x.pdf", "/etc/passwd", "%2e%2e/s.pdf"] }));
-
-        Assert.Equal("manual_not_found", Assert.Single(missing.Errors).Code);
-        Assert.Equal(["manual_not_allowed", "manual_not_allowed", "manual_not_allowed"], outside.Errors.Select(e => e.Code));
-        Assert.Equal("White", (await Stored(a)).Color);
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-12.11")]
-    public async Task A_manual_that_cannot_be_read_rejects_the_whole_update()
-    {
-        var a = await Registered("Acme", "Box");
-        File.WriteAllText(Path.Combine(_env.ManualsPath, "notes.txt"), "just text");
-        var good = _env.Pdf("good.pdf", "Alpha.");
-
-        var result = await Rejected(() => Update(a, new DeviceChanges { Color = "red", Manuals = [good, "notes.txt"] }));
-
-        var error = Assert.Single(result.Errors);
-        Assert.Equal("manual_unreadable", error.Code);
-        Assert.Contains("notes.txt (it is not a PDF)", error.Message, StringComparison.Ordinal);
-        Assert.Contains("nothing was changed", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

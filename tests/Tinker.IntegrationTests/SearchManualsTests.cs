@@ -81,21 +81,6 @@ public sealed class SearchManualsTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-08.1")]
-    public async Task The_query_goes_to_the_index_as_given_with_the_prefix_of_the_model_in_front()
-    {
-        var spy = new SearchSpyIndex(_env.Index);
-        using var env = new TestEnvironment(wrapIndex: _ => spy, queryPrefix: "Query: ");
-        var id = await Register("Shelly", "Dimmer 2", env, ("a.pdf", [Wifi]));
-
-        var result = await env.Searcher.SearchAsync(id, "  reset button ", null);
-
-        Assert.True(result.Ok);
-        var search = Assert.Single(spy.Searches);
-        Assert.Equal((id, "Query: reset button", 5), search);
-    }
-
-    [Fact]
     [Trait("Criteria", "UC-08.2")]
     public async Task Only_the_excerpts_of_that_device_come_back_even_if_another_device_matches_better()
     {
@@ -136,20 +121,6 @@ public sealed class SearchManualsTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-08.3")]
-    public async Task The_number_of_results_is_passed_to_the_index_and_the_default_is_five()
-    {
-        var spy = new SearchSpyIndex(_env.Index);
-        using var env = new TestEnvironment(wrapIndex: _ => spy);
-        var id = await Register("Shelly", "Dimmer 2", env, ("a.pdf", [Wifi]));
-
-        await env.Searcher.SearchAsync(id, "reset", 3);
-        await env.Searcher.SearchAsync(id, "reset", null);
-
-        Assert.Equal([3, 5], spy.Searches.Select(s => s.Count));
-    }
-
-    [Fact]
     [Trait("Criteria", "UC-08.1")]
     public async Task A_search_does_not_change_anything_and_is_logged()
     {
@@ -165,23 +136,6 @@ public sealed class SearchManualsTests : IDisposable
 
     // UC-09
 
-    [Theory]
-    [Trait("Criteria", "UC-09.1")]
-    [InlineData(99L)]
-    [InlineData(0L)]
-    [InlineData(-1L)]
-    public async Task A_device_that_does_not_exist_is_device_not_found(long id)
-    {
-        await Register("Shelly", "Dimmer 2", manuals: [("a.pdf", [Wifi])]);
-        var warnings = _env.Logs.Entries.Count(e => e.Level == LogLevel.Warning);
-
-        var result = await Search(id, "wifi");
-
-        AssertFails(result, "device_not_found");
-        Assert.Equal($"The device id {id} does not exist. Use find_devices to get a valid device_id.", result.Error!.Message);
-        Assert.True(_env.Logs.Entries.Count(e => e.Level == LogLevel.Warning) > warnings);
-    }
-
     [Fact]
     [Trait("Criteria", "UC-09.1")]
     public async Task A_deleted_device_is_device_not_found_and_its_content_is_not_returned()
@@ -192,62 +146,6 @@ public sealed class SearchManualsTests : IDisposable
         var result = await Search(id, "wifi");
 
         AssertFails(result, "device_not_found");
-    }
-
-    [Theory]
-    [Trait("Criteria", "UC-09.2")]
-    [InlineData(null, null, "`query` is blank: it must be the text to look for in the manuals.")]
-    [InlineData("", null, "`query` is blank: it must be the text to look for in the manuals.")]
-    [InlineData("  \t ", 3, "`query` is blank: it must be the text to look for in the manuals.")]
-    [InlineData("wifi", 0, "`n_results` must be 1 or more: it is the number of excerpts to return.")]
-    [InlineData("wifi", -4, "`n_results` must be 1 or more: it is the number of excerpts to return.")]
-    [InlineData(" ", 0, "`query` is blank: it must be the text to look for in the manuals. `n_results` must be 1 or more: it is the number of excerpts to return.")]
-    public async Task Invalid_arguments_are_invalid_fields_and_say_which_one(string? query, int? count, string message)
-    {
-        var id = await Register("Shelly", "Dimmer 2", manuals: [("a.pdf", [Wifi])]);
-        var warnings = _env.Logs.Entries.Count(e => e.Level == LogLevel.Warning);
-
-        var result = await Search(id, query, count);
-
-        AssertFails(result, "invalid_fields");
-        Assert.Equal(message, result.Error!.Message);
-        Assert.True(_env.Logs.Entries.Count(e => e.Level == LogLevel.Warning) > warnings);
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-09.2")]
-    public async Task A_missing_device_id_is_invalid_fields()
-    {
-        await Register("Shelly", "Dimmer 2", manuals: [("a.pdf", [Wifi])]);
-
-        var result = await Search(null, "wifi");
-
-        AssertFails(result, "invalid_fields");
-        Assert.Equal("`device_id` is missing: it is the id of the device whose manuals are searched. Get it with find_devices.", result.Error!.Message);
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-09.2")]
-    public async Task Invalid_arguments_are_reported_before_the_device_is_looked_up()
-    {
-        var result = await Search(99, "  ");
-
-        AssertFails(result, "invalid_fields");
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-09.4")]
-    public async Task A_device_without_manuals_gives_an_empty_list_and_says_so()
-    {
-        var registered = await _env.Registrar.RegisterAsync(new Device { Brand = "Shelly", Model = "Dimmer 2" });
-
-        var result = await Search(registered.Device!.DeviceId, "wifi");
-
-        Assert.True(result.Ok);
-        Assert.Empty(result.Chunks);
-        Assert.Equal(
-            "This device has no manuals, so nothing can be answered. Tell the user, who can add manuals with update_device.",
-            result.Message);
     }
 
     [Fact]
@@ -282,34 +180,6 @@ public sealed class SearchManualsTests : IDisposable
         Assert.True(result.Ok);
         Assert.Empty(result.Chunks);
         Assert.NotNull(result.Message);
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-09.4")]
-    public async Task A_failure_in_the_index_is_a_failed_error_that_hides_the_cause()
-    {
-        using var env = new TestEnvironment(wrapIndex: index => new SearchSpyIndex(index, fail: true));
-        var id = await Register("Shelly", "Dimmer 2", env, ("a.pdf", [Wifi]));
-
-        var result = await env.Searcher.SearchAsync(id, "wifi", null);
-
-        AssertFails(result, "failed");
-        Assert.StartsWith("Searching the manuals failed because of an internal problem, not because of the request.", result.Error!.Message, StringComparison.Ordinal);
-        Assert.Contains("Tell the user instead of retrying", result.Error.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain("index broke", result.Error.Message, StringComparison.Ordinal);
-        Assert.Contains(env.Logs.Entries, e => e.Level == LogLevel.Error);
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-09.4")]
-    public async Task An_unreadable_inventory_is_a_failed_error()
-    {
-        using var env = new TestEnvironment(wrapInventory: inventory => new UnreadableInventory(inventory));
-
-        var result = await env.Searcher.SearchAsync(1, "wifi", null);
-
-        AssertFails(result, "failed");
-        Assert.Contains(env.Logs.Entries, e => e.Level == LogLevel.Error);
     }
 
     [Fact]

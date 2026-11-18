@@ -13,7 +13,7 @@ namespace Tinker.Core.Registration;
 /// briefly. The inventory and the manuals index are written in one transaction: a registration is all or nothing.
 /// </summary>
 public sealed partial class DeviceRegistrar(
-    ManualPathResolver resolver,
+    IManualFiles manualFiles,
     IInventory inventory,
     IManualsIndex index,
     ITransactionRunner transactions,
@@ -93,7 +93,7 @@ public sealed partial class DeviceRegistrar(
         var notFound = new List<string>();
         foreach (var manual in requested)
         {
-            var resolved = resolver.Resolve(manual);
+            var resolved = manualFiles.Resolve(manual);
             switch (resolved.Rejection)
             {
                 case ManualRejection.OutsideFolder:
@@ -103,7 +103,7 @@ public sealed partial class DeviceRegistrar(
                     errors.Add(new DeviceError(ErrorCodes.ManualNotAllowed, Messages.ManualDotDot(manual)));
                     break;
                 default:
-                    if (!File.Exists(resolved.FullPath))
+                    if (!manualFiles.Exists(resolved))
                     {
                         notFound.Add(manual);
                     }

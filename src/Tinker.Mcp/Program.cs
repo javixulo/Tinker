@@ -41,7 +41,7 @@ builder.Services.AddSingleton<ITransactionRunner>(sp => sp.GetRequiredService<Sq
 builder.Services.AddSingleton<IInventory, SqliteInventory>();
 builder.Services.AddSingleton<IManualsIndex, SqliteManualsIndex>();
 builder.Services.AddSingleton<IManualTextExtractor, PdfPigTextExtractor>();
-builder.Services.AddSingleton(sp => new ManualPathResolver(sp.GetRequiredService<TinkerOptions>().ManualsPath));
+builder.Services.AddSingleton<IManualFiles>(sp => new ManualPathResolver(sp.GetRequiredService<TinkerOptions>().ManualsPath));
 // The embedding model (technical spec, section 7). Its files are checked at startup, so it is created lazily.
 builder.Services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>>(sp =>
 {

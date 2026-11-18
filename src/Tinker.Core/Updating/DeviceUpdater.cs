@@ -14,7 +14,7 @@ namespace Tinker.Core.Updating;
 /// lose their chunks and the kept ones are left alone. The heavy work happens before the transaction opens.
 /// </summary>
 public sealed partial class DeviceUpdater(
-    ManualPathResolver resolver,
+    IManualFiles manualFiles,
     IInventory inventory,
     IManualsIndex index,
     ITransactionRunner transactions,
@@ -77,7 +77,7 @@ public sealed partial class DeviceUpdater(
             var resolved = new List<ManualPathResult>();
             foreach (var manual in changes.Manuals.Where(m => !TextKeys.IsBlank(m)).Select(m => m.Trim()))
             {
-                var path = resolver.Resolve(manual);
+                var path = manualFiles.Resolve(manual);
                 switch (path.Rejection)
                 {
                     case ManualRejection.OutsideFolder:
@@ -103,7 +103,7 @@ public sealed partial class DeviceUpdater(
             updated = updated with { Manuals = resolved.Select(m => m.RelativePath!).ToList() };
         }
 
-        var notFound = added.Where(m => !File.Exists(m.FullPath)).Select(m => m.RelativePath!).ToList();
+        var notFound = added.Where(m => !manualFiles.Exists(m)).Select(m => m.RelativePath!).ToList();
         if (notFound.Count > 0)
         {
             errors.Add(new DeviceError(ErrorCodes.ManualNotFound, Messages.ManualNotFound(notFound)));

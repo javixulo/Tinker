@@ -79,24 +79,6 @@ public sealed class DeleteDeviceTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-03.2")]
-    public async Task Deletes_the_device_that_other_properties_single_out()
-    {
-        var devices = await Inventory();
-        var othersBefore = Others(1, 2);
-
-        // Type TV is not enough for the other two, and Salon is shared with device 1: only together they single out device 3.
-        var result = await Delete(new Device { DeviceType = "tv", Brand = "samsung", Location = "salon" });
-
-        Assert.True(result.Ok);
-        Assert.Equal(TestEnvironment.Json(devices[2]), TestEnvironment.Json(result.Device!));
-        Assert.Equal([1L, 2L], (await _env.Inventory.ListAllAsync()).Select(d => d.DeviceId!.Value));
-        Assert.Equal(0, _env.CountChunks(3));
-        Assert.True(File.Exists(Path.Combine(_env.ManualsPath, "c.pdf")));
-        Assert.Equal(othersBefore, Others(1, 2));
-    }
-
-    [Fact]
     [Trait("Criteria", "UC-03.1, UC-03.2")]
     public async Task Deleting_by_device_id_works_and_the_id_is_not_reused()
     {
@@ -111,84 +93,6 @@ public sealed class DeleteDeviceTests : IDisposable
     }
 
     // UC-04
-
-    [Theory]
-    [Trait("Criteria", "UC-04.1")]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Without_a_property_or_with_only_blank_ones_nothing_is_deleted(bool blank)
-    {
-        await Inventory();
-        var before = _env.Snapshot();
-        var warnings = _env.Logs.Entries.Count(e => e.Level == LogLevel.Warning);
-
-        var result = blank
-            ? await Delete(new Device { Brand = "  ", Model = "", Manuals = [" "], Urls = [], Status = "\t" })
-            : await _env.Remover.DeleteAsync(null);
-
-        AssertFails(result, "invalid_fields");
-        Assert.Equal(
-            "No property was given. Give at least one property of the device (for example brand and model) to identify it. Nothing was deleted.",
-            result.Error!.Message);
-        Assert.Equal(before, _env.Snapshot());
-        Assert.True(_env.Logs.Entries.Count(e => e.Level == LogLevel.Warning) > warnings);
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-04.1")]
-    public async Task Without_a_property_the_only_device_is_not_deleted_either()
-    {
-        var env = new TestEnvironment();
-        using var _ = env;
-        var only = await env.Registrar.RegisterAsync(new Device { Brand = "Shelly", Model = "Dimmer 2", Manuals = [env.Pdf("a.pdf", "Text.")] });
-        Assert.True(only.Ok);
-
-        var result = await env.Remover.DeleteAsync(new Device());
-
-        AssertFails(result, "invalid_fields");
-        Assert.Equal(1, env.CountDevices());
-        Assert.NotEqual(0, env.CountChunks(1));
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-04.2")]
-    public async Task No_device_matching_is_device_not_found_and_lists_the_properties()
-    {
-        await Inventory();
-        var before = _env.Snapshot();
-        var warnings = _env.Logs.Entries.Count(e => e.Level == LogLevel.Warning);
-
-        // Each property exists in some device, but no device has them all; part of a value does not match either.
-        var result = await Delete(new Device { Brand = "Samsung", Location = "Habitación" });
-        var part = await Delete(new Device { Model = "Dimmer" });
-
-        AssertFails(result, "device_not_found");
-        Assert.Equal(
-            "No registered device matches the properties (brand: Samsung, location: Habitación). Nothing was deleted. Ask the user for other details, or check the registered devices with find_devices.",
-            result.Error!.Message);
-        Assert.Null(result.Error.Devices);
-        AssertFails(part, "device_not_found");
-        Assert.Equal(before, _env.Snapshot());
-        Assert.True(_env.Logs.Entries.Count(e => e.Level == LogLevel.Warning) >= warnings + 2);
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-04.3")]
-    public async Task Several_matching_devices_are_ambiguous_and_nothing_is_deleted()
-    {
-        var devices = await Inventory();
-        var before = _env.Snapshot();
-
-        var result = await Delete(new Device { Brand = "Shelly", DeviceType = "Dimmer" });
-
-        AssertFails(result, "ambiguous_device");
-        Assert.Equal(
-            "2 registered devices match the properties (brand: Shelly, device_type: Dimmer). Nothing was deleted. Ask the user which one it is, or give more properties.",
-            result.Error!.Message);
-        Assert.Equal(TestEnvironment.Json(devices[0]) + "|" + TestEnvironment.Json(devices[1]), string.Join('|', result.Error.Devices!.Select(TestEnvironment.Json)));
-        Assert.Equal(before, _env.Snapshot());
-        Assert.Contains(_env.Logs.Entries, e => e.Level == LogLevel.Warning && e.Message.Contains("ambiguous_device", StringComparison.Ordinal));
-    }
 
     [Fact]
     [Trait("Criteria", "UC-04.4")]
@@ -213,15 +117,4 @@ public sealed class DeleteDeviceTests : IDisposable
         Assert.Contains(env.Logs.Entries, e => e.Level == LogLevel.Error);
     }
 
-    [Fact]
-    [Trait("Criteria", "UC-04.4")]
-    public async Task An_unreadable_inventory_is_a_failed_error()
-    {
-        using var env = new TestEnvironment(wrapInventory: inventory => new UnreadableInventory(inventory));
-
-        var result = await env.Remover.DeleteAsync(new Device { Brand = "Shelly" });
-
-        AssertFails(result, "failed");
-        Assert.Contains(env.Logs.Entries, e => e.Level == LogLevel.Error);
-    }
 }

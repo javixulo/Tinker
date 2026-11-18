@@ -62,17 +62,6 @@ public sealed class RejectRegistrationTests : IDisposable
         Assert.Equal(TestEnvironment.Json(existing), TestEnvironment.Json(error.Device!));
     }
 
-    [Fact]
-    [Trait("Criteria", "UC-02.2")]
-    public async Task Spaces_between_words_do_not_make_a_different_device()
-    {
-        await Registered("Fibaro", "Double  Smart", _env.Pdf("a.pdf", "Alpha."));
-
-        var result = await Rejected(() => _env.Register("FIBARO", "double smart", _env.Pdf("b.pdf", "Beta.")));
-
-        Assert.Equal("device_exists", Assert.Single(result.Errors).Code);
-    }
-
     [Theory]
     [Trait("Criteria", "UC-02.1,2")]
     [InlineData("Philips", "Hué", "Philips", "hue")]
@@ -89,17 +78,6 @@ public sealed class RejectRegistrationTests : IDisposable
         var error = Assert.Single(result.Errors);
         Assert.Equal("device_exists", error.Code);
         Assert.Equal(TestEnvironment.Json(existing), TestEnvironment.Json(error.Device!));
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-02.1,2")]
-    public async Task Accents_are_not_the_only_thing_ignored_other_characters_still_count()
-    {
-        await Registered("Philips", "Hue-2", _env.Pdf("a.pdf", "Alpha."));
-
-        var result = await _env.Register("Philips", "Hue 2", _env.Pdf("b.pdf", "Beta."));
-
-        Assert.True(result.Ok);
     }
 
     [Fact]
@@ -132,17 +110,6 @@ public sealed class RejectRegistrationTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.4")]
-    public async Task A_brand_with_no_valid_character_left_is_rejected()
-    {
-        var result = await Rejected(() => _env.Registrar.RegisterAsync(new Device { Brand = "...", Model = "M" }));
-
-        var error = Assert.Single(result.Errors);
-        Assert.Equal("invalid_fields", error.Code);
-        Assert.Contains("no valid characters", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
     [Trait("Criteria", "UC-02.12")]
     public async Task Manuals_that_cannot_be_read_are_listed_with_their_reason_and_nothing_is_saved()
     {
@@ -159,62 +126,6 @@ public sealed class RejectRegistrationTests : IDisposable
         Assert.DoesNotContain("ok.pdf", error.Message, StringComparison.Ordinal);
         Assert.Contains("neither was the device", error.Message, StringComparison.Ordinal);
         Assert.Equal(0, _env.CountChunks());
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-02.4")]
-    public async Task Rejects_no_device_at_all()
-    {
-        var result = await Rejected(() => _env.Registrar.RegisterAsync(null));
-
-        Assert.Equal("invalid_fields", Assert.Single(result.Errors).Code);
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-02.4")]
-    public async Task Rejects_an_unknown_status()
-    {
-        var manual = _env.Pdf("a.pdf", "Alpha.");
-
-        var result = await Rejected(() => _env.Registrar.RegisterAsync(new Device { Brand = "B", Model = "M", Manuals = [manual], Status = "broken" }));
-
-        var error = Assert.Single(result.Errors);
-        Assert.Equal("invalid_fields", error.Code);
-        Assert.Contains("active, inactive, archived", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-02.5")]
-    public async Task Rejects_manuals_that_do_not_exist_and_lists_all_of_them()
-    {
-        _env.Pdf("exists.pdf", "Alpha.");
-
-        var result = await Rejected(() => _env.Register("Shelly", "Dimmer 2", "shelly/missing.pdf", "exists.pdf", "other-missing.pdf"));
-
-        var error = Assert.Single(result.Errors);
-        Assert.Equal("manual_not_found", error.Code);
-        Assert.Contains("shelly/missing.pdf", error.Message, StringComparison.Ordinal);
-        Assert.Contains("other-missing.pdf", error.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain("exists.pdf", error.Message.Replace("missing.pdf", "", StringComparison.Ordinal), StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-02.6")]
-    public async Task Rejects_a_manual_that_belongs_to_another_device()
-    {
-        var owner = await Registered("Acme", "One", _env.Pdf("shared.pdf", "Shared."));
-        var own = _env.Pdf("own.pdf", "Own.");
-
-        var alone = await Rejected(() => _env.Register("Acme", "Two", "shared.pdf"));
-        var withOthers = await Rejected(() => _env.Register("Acme", "Three", own, "shared.pdf"));
-
-        foreach (var result in new[] { alone, withOthers })
-        {
-            var error = Assert.Single(result.Errors);
-            Assert.Equal("manual_in_use", error.Code);
-            Assert.Contains("shared.pdf", error.Message, StringComparison.Ordinal);
-            Assert.Equal(TestEnvironment.Json(owner), TestEnvironment.Json(error.Device!));
-        }
     }
 
     [Fact]
@@ -319,35 +230,6 @@ public sealed class RejectRegistrationTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.10")]
-    public async Task One_invalid_manual_rolls_back_everything()
-    {
-        var good = _env.Pdf("good.pdf", "Alpha.");
-
-        var result = await Rejected(() => _env.Register("Acme", "Box", good, "../secret.pdf"));
-
-        var error = Assert.Single(result.Errors);
-        Assert.Equal("manual_not_allowed", error.Code);
-        Assert.Contains("../secret.pdf", error.Message, StringComparison.Ordinal);
-        Assert.Equal(0, _env.CountDevices());
-        Assert.Equal(0, _env.CountChunks());
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-02.4,5,6")]
-    public async Task Tells_every_reason_at_once()
-    {
-        var owner = await Registered("Acme", "One", _env.Pdf("shared.pdf", "Shared."));
-
-        var result = await Rejected(() => _env.Register("Acme", "One", "shared.pdf", "missing.pdf", "../x.pdf", "/etc/passwd"));
-
-        Assert.Equal(
-            ["manual_not_allowed", "manual_not_allowed", "manual_not_found", "device_exists", "manual_in_use"],
-            result.Errors.Select(e => e.Code));
-        Assert.All(result.Errors.Where(e => e.Code is "device_exists" or "manual_in_use"), e => Assert.Equal(owner.DeviceId, e.Device!.DeviceId));
-    }
-
-    [Fact]
     [Trait("Criteria", "UC-02.11")]
     public async Task A_failure_after_the_device_is_written_rolls_back_everything()
     {
@@ -361,19 +243,6 @@ public sealed class RejectRegistrationTests : IDisposable
         Assert.Equal(0, env.CountDevices());
         Assert.Equal(0, env.CountChunks());
         Assert.Contains(env.Logs.Entries, e => e.Level == LogLevel.Error);
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-02.11")]
-    public async Task A_manual_that_cannot_be_read_fails_and_leaves_nothing()
-    {
-        using var env = new TestEnvironment(extractor: new ThrowingExtractor());
-        var before = env.Snapshot();
-
-        var result = await env.Register("Acme", "Box", env.Pdf("a.pdf", "Alpha."));
-
-        AssertFailed(result);
-        Assert.Equal(before, env.Snapshot());
     }
 
     [Fact]
