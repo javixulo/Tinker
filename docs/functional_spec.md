@@ -1,6 +1,6 @@
 # Home Manuals MCP (C#) — Functional Specification (DRAFT)
 
-> Draft in review: use cases and acceptance criteria, one section per tool. The four tools (`register_device`, `delete_device`, `find_devices` and `search_manuals`) are drafted.
+> Draft in review: use cases and acceptance criteria, one section per tool. The four tools (`register_device`, `delete_device`, `find_devices` and `search_manuals`) are drafted. Implemented so far: `register_device`, `delete_device` and `find_devices`.
 
 ## 1. Device information model
 
@@ -160,7 +160,7 @@ The device is matched as in `find_devices`, and it is deleted only when the prop
 | `device` | Device | The device as it was before being deleted, so the client can tell the user what was deleted. Empty when `ok` is `false` |
 | `error` | Error | Empty when `ok` is `true`. Codes: `invalid_fields`, `device_not_found`, `ambiguous_device` (carries the matching `devices`), `failed` |
 
-A device that cannot be deleted is not a tool error: it comes as `ok=false` with its `error`. The tool deletes when it is called, with no confirmation: asking the user is the client's job. It works on one device at a time and never guesses which device is meant.
+A device that cannot be deleted is not a tool error: it comes as `ok=false` with its `error`. The tool deletes when it is called, with no confirmation: asking the user is the client's job. It works on one device at a time and never guesses which device is meant. A deletion cannot be undone: the device gets a new `device_id` if it is registered again, and ids are never reused.
 
 **Preconditions**
 

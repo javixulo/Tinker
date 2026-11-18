@@ -20,7 +20,7 @@ manuals/
 !tests/fixtures/manuals/
 
 # Embedding model files (downloaded, see docs/technical_spec.md section 7)
-models/
+/models/
 
 TestResults/
 

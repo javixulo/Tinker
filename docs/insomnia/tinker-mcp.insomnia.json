@@ -824,6 +824,222 @@
       "settingEncodeUrl": true,
       "created": 1763391000000,
       "modified": 1763391000000
+    },
+    {
+      "_id": "fld_uc04",
+      "_type": "request_group",
+      "parentId": "wrk_tinker_mcp",
+      "name": "UC-04 Fail to delete a device",
+      "description": "",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": -1763390999994,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "fld_uc03",
+      "_type": "request_group",
+      "parentId": "wrk_tinker_mcp",
+      "name": "UC-03 Delete a device",
+      "description": "",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": -1763390999993,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_22",
+      "_type": "request",
+      "parentId": "fld_uc04",
+      "name": "1 No properties",
+      "description": "Criterion 1. Expect ok=false, an invalid_fields error that says at least one property is needed, and nothing deleted.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"delete_device\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \"  \",\n        \"manuals\": []\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999899,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_23",
+      "_type": "request",
+      "parentId": "fld_uc04",
+      "name": "2 No device matches",
+      "description": "Criterion 2. Expect ok=false and a device_not_found error that lists the properties and says to ask the user or use find_devices.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"delete_device\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \"Samsung\",\n        \"model\": \"QE55Q60\"\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999898,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_24",
+      "_type": "request",
+      "parentId": "fld_uc04",
+      "name": "3 Several devices match",
+      "description": "Criterion 3. Both devices are in Salon. Expect ok=false and an ambiguous_device error that carries both devices in `devices`.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"delete_device\",\n    \"arguments\": {\n      \"device\": {\n        \"location\": \"Salon\"\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999897,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_25",
+      "_type": "request",
+      "parentId": "fld_uc03",
+      "name": "1 Delete by brand and model",
+      "description": "Criterion 1. Deletes Fibaro Double Smart. Expect ok=true and the device as it was. Check it with find_devices (UC-06 \u00b7 3): only Shelly Dimmer 2 is left. The manual files stay in the folder.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"delete_device\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \"fibaro\",\n        \"model\": \" DOUBLE smart \"\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999896,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_26",
+      "_type": "request",
+      "parentId": "fld_uc03",
+      "name": "1b Register Shelly RGBW2 again (setup)",
+      "description": "Setup for criterion 2. The manual of Fibaro is free again after criterion 1, so this registers a second Shelly with a type of its own. Expect ok=true (device 3).",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"register_device\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \"Shelly\",\n        \"model\": \"RGBW2\",\n        \"manuals\": [\n          \"shelly/rgbw2_app_guide.pdf\"\n        ],\n        \"device_type\": \"LED controller\",\n        \"location\": \"Salon\"\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999895,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_27",
+      "_type": "request",
+      "parentId": "fld_uc03",
+      "name": "2 Delete by other properties",
+      "description": "Criterion 2. Brand Shelly is shared by two devices; the type tells them apart. Expect ok=true and Shelly RGBW2 as it was.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"delete_device\",\n    \"arguments\": {\n      \"device\": {\n        \"device_type\": \"led controller\",\n        \"brand\": \"SHELLY\"\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999894,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
     }
   ]
 }

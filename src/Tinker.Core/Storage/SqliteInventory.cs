@@ -96,6 +96,15 @@ public sealed class SqliteInventory(SqliteDatabase database) : IInventory
             }
         });
 
+    public Task<bool> DeleteAsync(long deviceId, CancellationToken cancellationToken = default) =>
+        database.UseAsync(async (connection, transaction) =>
+        {
+            // The manuals and URLs go by cascade (foreign_keys is on for every connection).
+            using var command = Command(connection, transaction, "DELETE FROM devices WHERE device_id = $id");
+            command.Parameters.AddWithValue("$id", deviceId);
+            return await command.ExecuteNonQueryAsync(cancellationToken) > 0;
+        });
+
     private static async Task InsertChildAsync(
         SqliteConnection connection, SqliteTransaction? transaction, string table, string column, long deviceId, string value, CancellationToken cancellationToken)
     {

@@ -29,6 +29,9 @@ public interface IInventory
     /// <summary>Stores the device with its manuals and URLs and returns it with its new <c>device_id</c>.</summary>
     /// <exception cref="InventoryConflictException">The brand and model, or a manual, are already registered.</exception>
     Task<Device> InsertAsync(Device device, CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes the device with its manuals and URLs (by cascade). Returns false when there is no such device.</summary>
+    Task<bool> DeleteAsync(long deviceId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>An excerpt of a manual, ready to be indexed.</summary>

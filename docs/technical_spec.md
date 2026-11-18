@@ -28,7 +28,7 @@ tests/fixtures/manuals/    Public PDF manuals used by the tests
 docs/                      Functional and technical specs
 ```
 
-**Status.** `Tinker.Core`, `Tinker.Mcp` (web SDK, `WithHttpTransport`, `MapMcp("/mcp")`, `/health`), `Tinker.Core.Tests` and `Tinker.Mcp.Tests` exist, with `register_device` (UC-01 and UC-02) and `find_devices` (UC-05 to UC-07) implemented. The other tools are not yet. The placeholder `ping` tool is gone. Configuration is read from the `Tinker` section (`Tinker__DataPath`, `Tinker__ManualsPath`). OpenTelemetry is exported through OTLP only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+**Status.** `Tinker.Core`, `Tinker.Mcp` (web SDK, `WithHttpTransport`, `MapMcp("/mcp")`, `/health`), `Tinker.Core.Tests` and `Tinker.Mcp.Tests` exist, with `register_device` (UC-01 and UC-02), `delete_device` (UC-03 and UC-04) and `find_devices` (UC-05 to UC-07) implemented. `search_manuals` is not yet. The placeholder `ping` tool is gone. Configuration is read from the `Tinker` section (`Tinker__DataPath`, `Tinker__ManualsPath`). OpenTelemetry is exported through OTLP only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
 
 ## 3. Observability
 
@@ -89,7 +89,7 @@ docs/                      Functional and technical specs
 
 **Proposed.** This is the contract with the clients. Changes to it must be said explicitly (`CLAUDE.md`). The input and output models are in section 2 of the functional spec; this section covers how they travel.
 
-**Tools:** `register_device`, `find_devices`, `search_manuals`, `delete_device`.
+**Tools:** `register_device`, `find_devices`, `search_manuals`, `delete_device` (marked `destructive` in its MCP annotations; it deletes at once, so the client confirms with the user first).
 
 **Serialization.**
 
@@ -139,6 +139,8 @@ docs/                      Functional and technical specs
 | `find_devices` empty | `No registered device matches ({listed}). Ask the user for other details, or register the device.` or `There are no registered devices. Register one with register_device.` |
 | `search_manuals` empty | `The manuals of this device have no extractable text (for example, they are scanned), so nothing can be answered from them. Tell the user.` |
 
+Outcome of `delete_device`: `ok`, `device` (as it was before being deleted) and `error` (one, not a list). Its `ambiguous_device` error carries the matching `devices`.
+
 `{listed}` is the properties given as `name: value` pairs, with the names of the contract, separated by commas (`brand: Samsung, location: Garage`); a list is given as its items separated by `;`.
 
 ## 7. Storage
@@ -179,6 +181,7 @@ CREATE TABLE device_urls (
 - **The database is the guarantee.** The checks in code give clear reasons, but the `UNIQUE` constraints decide: two simultaneous registrations cannot both pass.
 - `brand` and `model` are stored as the client wrote them. `brand_key` and `model_key` are the folded values.
 - **Keys.** `brand_key` and `model_key` are `TextKeys.Fold` of the brand and the model: trimmed, each run of whitespace collapsed to one space, lowercase and without accents (decompose to FormD, drop the non-spacing marks, compose to FormC). Nothing else is ignored (no hyphens). `Fold` is the **only** text comparison of the project, so the duplicate rule of `register_device`, `find_devices` and `delete_device` always agree: `Philips Hué` and `Philips Hue` are one device. SQLite's `COLLATE NOCASE` ignores the case of ASCII letters only and cannot remove accents, which is why the keys are computed in code and stored.
+- **Deletion.** `delete_device` finds its device the same way as `find_devices`: `DeviceMatcher` (in `Finding`) turns the given properties into criteria and is the one place that decides what matches, used by `DeviceFinder` and `DeviceRemover`. Then `IInventory.DeleteAsync(device_id)` deletes the row (manuals and URLs go by cascade) and `IManualsIndex.DeleteByDeviceAsync` deletes its chunks, both in one transaction; if the index fails the device row comes back. If the device disappears between the lookup and the delete (another request got there first), the answer is `device_not_found`. The manual files are never touched.
 - **Lookups.** `find_devices` does not use SQL to compare text. `IInventory.ListAllAsync` returns every device and `DeviceFinder` filters in memory with `TextKeys.Fold`. A home inventory has tens of devices, so reading them all costs nothing; if it ever grows, store a folded key per column (see section 9).
 - **Races.** If two registrations pass the checks together, the `UNIQUE` constraints decide: the loser is rolled back and gets `device_exists` or `manual_in_use`, as if the check had caught it.
 - **Queries.** They are built from an allowlist of columns, with every value as a parameter. A value from the client is never concatenated into SQL.

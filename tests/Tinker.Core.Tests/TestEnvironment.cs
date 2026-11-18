@@ -6,6 +6,7 @@ using Tinker.Core.Finding;
 using Tinker.Core.Manuals;
 using Tinker.Core.Models;
 using Tinker.Core.Registration;
+using Tinker.Core.Removal;
 using Tinker.Core.Storage;
 using UglyToad.PdfPig.Core;
 using UglyToad.PdfPig.Writer;
@@ -43,10 +44,12 @@ public sealed class TestEnvironment : IDisposable
         Index = new SqliteManualsIndex(Database, generator);
         var inventory = wrapInventory?.Invoke(Inventory) ?? Inventory;
         Finder = new DeviceFinder(inventory, LoggerFactory.Create(b => b.AddProvider(Logs)).CreateLogger<DeviceFinder>());
+        var wrappedIndex = wrapIndex?.Invoke(Index) ?? Index;
+        Remover = new DeviceRemover(inventory, wrappedIndex, Database, LoggerFactory.Create(b => b.AddProvider(Logs)).CreateLogger<DeviceRemover>());
         Registrar = new DeviceRegistrar(
             new ManualPathResolver(ManualsPath),
             inventory,
-            wrapIndex?.Invoke(Index) ?? Index,
+            wrappedIndex,
             Database,
             extractor ?? new PdfPigTextExtractor(),
             generator,
@@ -56,6 +59,8 @@ public sealed class TestEnvironment : IDisposable
     public DeviceRegistrar Registrar { get; }
 
     public DeviceFinder Finder { get; }
+
+    public DeviceRemover Remover { get; }
 
     /// <summary>Devices hold lists, so records compare by reference: compare their JSON instead.</summary>
     public static string Json(Device device) => System.Text.Json.JsonSerializer.Serialize(device);
@@ -93,6 +98,8 @@ public sealed class TestEnvironment : IDisposable
         Registrar.RegisterAsync(new Device { Brand = brand, Model = model, Manuals = manuals });
 
     public long CountDevices() => Scalar<long>("SELECT COUNT(*) FROM devices");
+
+    public long CountRows(string table, long deviceId) => Scalar<long>($"SELECT COUNT(*) FROM {table} WHERE device_id = {deviceId}");
 
     public long CountChunks(long? deviceId = null) =>
         deviceId is null ? Scalar<long>("SELECT COUNT(*) FROM chunks") : Scalar<long>($"SELECT COUNT(*) FROM chunks WHERE device_id = {deviceId}");
@@ -197,6 +204,8 @@ public sealed class RacyInventory(IInventory inner) : IInventory
         Blind = false;
         return await inner.InsertAsync(device, cancellationToken);
     }
+
+    public Task<bool> DeleteAsync(long deviceId, CancellationToken cancellationToken = default) => inner.DeleteAsync(deviceId, cancellationToken);
 }
 
 public sealed class ThrowingExtractor : IManualTextExtractor
@@ -218,4 +227,18 @@ public sealed class UnreadableInventory(IInventory inner) : IInventory
         throw new InvalidOperationException("The database is unreadable.");
 
     public Task<Device> InsertAsync(Device device, CancellationToken cancellationToken = default) => inner.InsertAsync(device, cancellationToken);
+
+    public Task<bool> DeleteAsync(long deviceId, CancellationToken cancellationToken = default) => inner.DeleteAsync(deviceId, cancellationToken);
+}
+
+/// <summary>An index that deletes the chunks and then fails, like a deletion that breaks half way.</summary>
+public sealed class ThrowingDeleteIndex(IManualsIndex inner) : IManualsIndex
+{
+    public Task AddAsync(long deviceId, IReadOnlyList<IndexedChunk> chunks, CancellationToken cancellationToken = default) => inner.AddAsync(deviceId, chunks, cancellationToken);
+
+    public async Task DeleteByDeviceAsync(long deviceId, CancellationToken cancellationToken = default)
+    {
+        await inner.DeleteByDeviceAsync(deviceId, cancellationToken);
+        throw new InvalidOperationException("The index broke while deleting.");
+    }
 }
