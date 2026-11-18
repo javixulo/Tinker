@@ -22,6 +22,14 @@ jobs:
       - name: Build
         run: dotnet build -c Release
 
+      # The native libraries (ONNX Runtime, SQLite) come for every platform, about 300 MB per test project. The test jobs
+      # run on linux-x64, so the rest is dropped before packing.
+      - name: Keep only the linux-x64 native libraries
+        run: |
+          for dir in tests/*/bin/Release/net10.0/runtimes; do
+            find "$dir" -mindepth 1 -maxdepth 1 ! -name linux-x64 -exec rm -rf {} +
+          done
+
       # The test projects are self-contained executables: each bin/Release folder holds the tests, the code under test,
       # its dependencies and the fixtures. Nothing else is needed to run them. A tar keeps the executable bits that
       # upload-artifact would drop.
@@ -58,6 +66,12 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      # The only job that checks out: WebApplicationFactory resolves the content root of the server project
+      # (src/Tinker.Mcp) from the source tree.
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: src/Tinker.Mcp
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
