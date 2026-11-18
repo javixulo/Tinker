@@ -50,6 +50,10 @@ jobs:
       - name: Unpack the build output
         run: tar -xf build.tar
 
+      # The build output is reused, but the NuGet packages (the test framework) are not on this machine.
+      - name: Restore packages
+        run: dotnet restore tests/Tinker.Core.Tests
+
       - name: Test
         run: dotnet test --project tests/Tinker.Core.Tests -c Release --no-build
 
@@ -70,6 +74,10 @@ jobs:
 
       - name: Unpack the build output
         run: tar -xf build.tar
+
+      # The build output is reused, but the NuGet packages (the test framework) are not on this machine.
+      - name: Restore packages
+        run: dotnet restore tests/Tinker.Mcp.Tests
 
       - name: Test
         run: dotnet test --project tests/Tinker.Mcp.Tests -c Release --no-build
@@ -117,6 +125,10 @@ jobs:
         run: |
           echo "${MODEL_ONNX_SHA256}  models/bge-small-en-v1.5/model.onnx" | sha256sum -c -
           echo "${MODEL_VOCAB_SHA256}  models/bge-small-en-v1.5/vocab.txt" | sha256sum -c -
+
+      # The build output is reused, but the NuGet packages (the test framework) are not on this machine.
+      - name: Restore packages
+        run: dotnet restore tests/Tinker.RealModel.Tests
 
       - name: Test
         run: dotnet test --project tests/Tinker.RealModel.Tests -c Release --no-build
