@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The tests that run the real embedding model. Kept apart from the deterministic ones so they can be run, cached
+       and skipped on their own (technical spec, section 8). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" Version="4.0.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Tinker.Core\Tinker.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The test environment (temporary folders, database, registrar) is shared with the logic tests, not copied. -->
+    <Compile Include="..\Tinker.Core.Tests\TestEnvironment.cs" Link="Shared\TestEnvironment.cs" />
+    <Content Include="..\fixtures\manuals\**\*.pdf" Link="fixtures\manuals\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

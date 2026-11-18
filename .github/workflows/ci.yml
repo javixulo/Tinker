@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # Everything deterministic: logic tests (hash embeddings) and contract tests (the real server in process). The real
+  # model tests live in their own project and run in the next job.
+  # Fast, no network, and it is the check that must always be green.
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build -c Release
+
+      - name: Logic tests
+        run: dotnet test --project tests/Tinker.Core.Tests -c Release --no-build
+
+      - name: Contract tests
+        run: dotnet test --project tests/Tinker.Mcp.Tests -c Release --no-build
+
+  # The tests that run the real embedding model (technical spec, section 8). Same pinned revision and checksums as the
+  # Dockerfile, so CI tests the model that the image ships. The files are cached between runs.
+  real-model-tests:
+    runs-on: ubuntu-latest
+    env:
+      MODEL_REVISION: 5c38ec7c405ec4b44b94cc5a9bb96e735b38267a
+      MODEL_ONNX_SHA256: 828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35
+      MODEL_VOCAB_SHA256: 07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3
+      TINKER_TEST_MODEL_PATH: ${{ github.workspace }}/models/bge-small-en-v1.5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache the embedding model
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: models/bge-small-en-v1.5
+          key: bge-small-en-v1.5-${{ env.MODEL_REVISION }}
+
+      - name: Download the embedding model
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p models/bge-small-en-v1.5
+          base="https://huggingface.co/BAAI/bge-small-en-v1.5/resolve/${MODEL_REVISION}"
+          curl -fsSL --retry 3 -o models/bge-small-en-v1.5/model.onnx "$base/onnx/model.onnx"
+          curl -fsSL --retry 3 -o models/bge-small-en-v1.5/vocab.txt "$base/vocab.txt"
+
+      - name: Check the model files
+        run: |
+          echo "${MODEL_ONNX_SHA256}  models/bge-small-en-v1.5/model.onnx" | sha256sum -c -
+          echo "${MODEL_VOCAB_SHA256}  models/bge-small-en-v1.5/vocab.txt" | sha256sum -c -
+
+      - name: Test (real model)
+        run: dotnet test --project tests/Tinker.RealModel.Tests -c Release

@@ -133,13 +133,15 @@ services:
 
 See `docker-compose.yml` for the variables. The data folder must be on a local disk (SQLite locking is not reliable over NFS or SMB) and writable by `TINKER_UID`; the manuals are mounted read-only. The embedding model (about 130 MB) is downloaded when the image is built, from a pinned revision and checked against its SHA-256, so the first build needs network and the container needs none. The container runs as a non-root user, has a health check on `/health` and `restart: unless-stopped`.
 
+The image bundles the embedding model [BAAI/bge-small-en-v1.5](https://huggingface.co/BAAI/bge-small-en-v1.5) (MIT license), unmodified, so the semantic search works offline out of the box.
+
 ## Tests
 
 ```bash
 dotnet test
 ```
 
-Every acceptance criterion of the functional spec is covered by at least one automated test. Logic tests are deterministic (no network, no language model); contract tests start the real server in process and talk to it with an MCP client over HTTP. Tests in the `RealModel` category run the real embedding model and are skipped when its files are missing.
+Every acceptance criterion of the functional spec is covered by at least one automated test. Logic tests are deterministic (no network, no language model); contract tests start the real server in process and talk to it with an MCP client over HTTP. The tests that run the real embedding model are in their own project, `Tinker.RealModel.Tests`, and are skipped when its files are missing; run only them with `dotnet test --project tests/Tinker.RealModel.Tests`.
 
 ## Architecture
 
@@ -187,6 +189,11 @@ More detail, including the storage schema, the error codes and messages, and how
 | `src/Tinker.Core/` | The logic, one folder per area: `Registration/`, `Finding/`, `Updating/`, `Removal/`, `Searching/` (a service per tool), `Manuals/` (path confinement, PDF text extraction, chunking), `Embeddings/` (BGE ONNX and hash generators), `Storage/` (SQLite inventory and manuals index, ports), `Models/` (devices, results, messages) |
 | `tests/Tinker.Core.Tests/` | Logic tests, one or more per acceptance criterion |
 | `tests/Tinker.Mcp.Tests/` | Contract tests through a real MCP client |
+| `tests/Tinker.RealModel.Tests/` | Tests that run the real embedding model (skipped without its files) |
 | `tests/fixtures/manuals/` | Public PDF manuals used by the tests |
 | `docs/` | Functional spec (what the tools do) and technical spec (how and why) |
 | `Dockerfile`, `docker-compose.yml` | Container image and deployment |
+
+## License
+
+[MIT](LICENSE) © Francisco Javier Montoro Martínez ([LinkedIn](https://www.linkedin.com/in/javier-montoro/)). The Docker image also bundles the BAAI/bge-small-en-v1.5 model, which is MIT-licensed too.

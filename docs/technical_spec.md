@@ -24,11 +24,12 @@ src/Tinker.Mcp/            ASP.NET Core host: HTTP transport, tool classes, conf
 src/Tinker.Core/           Logic: models, services, ports, SQLite inventory, ingestion, path confinement
 tests/Tinker.Core.Tests/   Logic tests, one or more per acceptance criterion
 tests/Tinker.Mcp.Tests/    Contract tests through a real MCP client
+tests/Tinker.RealModel.Tests/  Tests that run the real embedding model (own project, skipped without the model files)
 tests/fixtures/manuals/    Public PDF manuals used by the tests
 docs/                      Functional and technical specs
 ```
 
-**Status.** `Tinker.Core`, `Tinker.Mcp` (web SDK, `WithHttpTransport`, `MapMcp("/mcp")`, `/health`), `Tinker.Core.Tests` and `Tinker.Mcp.Tests` exist, with `register_device` (UC-01 and UC-02), `delete_device` (UC-03 and UC-04), `find_devices` (UC-05 to UC-07) and `search_manuals` (UC-08 and UC-09) implemented: all four tools exist. The changes that `update_device` brought to the existing tools are built (optional manuals, normalized values, new statuses, `manual_unreadable`, brand cleaning in lookups, no-manuals message in `search_manuals`); `update_device` (UC-10 to UC-12) is built too: all five tools exist. The placeholder `ping` tool is gone. Configuration is read from the `Tinker` section (`Tinker__DataPath`, `Tinker__ManualsPath`). OpenTelemetry is exported through OTLP only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+**Status.** `Tinker.Core`, `Tinker.Mcp` (web SDK, `WithHttpTransport`, `MapMcp("/mcp")`, `/health`), `Tinker.Core.Tests`, `Tinker.Mcp.Tests` and `Tinker.RealModel.Tests` exist, with `register_device` (UC-01 and UC-02), `delete_device` (UC-03 and UC-04), `find_devices` (UC-05 to UC-07) and `search_manuals` (UC-08 and UC-09) implemented: all four tools exist. The changes that `update_device` brought to the existing tools are built (optional manuals, normalized values, new statuses, `manual_unreadable`, brand cleaning in lookups, no-manuals message in `search_manuals`); `update_device` (UC-10 to UC-12) is built too: all five tools exist. The placeholder `ping` tool is gone. Configuration is read from the `Tinker` section (`Tinker__DataPath`, `Tinker__ManualsPath`). OpenTelemetry is exported through OTLP only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
 
 ## 3. Observability
 
@@ -266,7 +267,7 @@ Sharing the file couples the two stores, so the coupling is kept as small as pos
 2. Write another generator (copy `BgeEmbeddingGenerator`: only the files, the pooling, the prefixes and the model id change; e5 uses mean pooling, not CLS), and select it by name in `Program.cs` and in `StartupValidation.CheckEmbeddingModel`.
 3. Move the query prefix behind the generator (an `EmbedQuery` method or a decorator) if `ManualSearcher` does not do it yet, so the search code does not know the model.
 4. **Rebuild the index.** Vectors of two models cannot be compared, and the index records the model that built it (`index_meta`). The server refuses to start with another model over an index built with the first, and says so. Until a rebuild command exists (section 9), delete the data folder (or the `chunks` and `index_meta` tables) and register the devices again. Dimensions may differ: nothing else stores them.
-5. Run the `RealModel` tests with the new model: `dotnet test --filter-trait "Category=RealModel"`. They check the dimensions, that similar meaning is closer than different meaning, batching and truncation.
+5. Run the `RealModel` tests with the new model: `dotnet test --project tests/Tinker.RealModel.Tests`. They check the dimensions, that similar meaning is closer than different meaning, batching and truncation.
 6. Update this subsection and the language answer in the functional spec.
 
 If the manuals become mixed (some English, some Spanish), a multilingual model is also the right choice: a single model must embed queries and passages of the whole index.
@@ -276,7 +277,7 @@ If the manuals become mixed (some English, some Spanish), a multilingual model i
 **Proposed.**
 
 - **Every acceptance criterion of the functional spec is covered by at least one automated test.** One test may cover several criteria, and one criterion may need several tests; what matters is that none is left uncovered. Each test says which criteria it covers (a trait or a comment), so coverage can be reviewed against the spec.
-- **Deterministic.** No network and no model of language. Logic tests use `HashEmbeddingGenerator`, which returns predictable vectors. A few slower tests, in the `RealModel` category (`BgeEmbeddingGeneratorTests`), run the real embedding model; they are skipped when the model files are not in `models/bge-small-en-v1.5` (or `TINKER_TEST_MODEL_PATH`). They take a few seconds, so they run with the rest.
+- **Deterministic.** No network and no model of language. Logic tests use `HashEmbeddingGenerator`, which returns predictable vectors. A few slower tests run the real embedding model (`BgeEmbeddingGeneratorTests`, `SearchManualsRealModelTests`); they live in their own project, `Tinker.RealModel.Tests`, which links `TestEnvironment.cs` from the logic tests instead of copying it. They are skipped when the model files are not in `models/bge-small-en-v1.5` (or `TINKER_TEST_MODEL_PATH`). `dotnet test` runs them with the rest locally; CI (`.github/workflows/ci.yml`) runs them as a separate job that downloads the pinned model (same revision and SHA-256 as the Dockerfile, cached), and the main job builds them but does not run them.
 - **Contract tests** (`Tinker.Mcp.Tests`) start the real server in process and talk to it with the SDK's MCP client over HTTP. They check: the tools exposed and their names, the schemas (`snake_case`), that every outcome is a normal result and not `isError`, that no raw exception ever travels, and that the trace context is propagated.
 - **Confinement tests** use a temporary folder with real links, including a link in an intermediate directory and a link whose target does not exist.
 - **Startup validation tests:** a data folder that is not writable, a missing manuals folder, a database with a newer schema, an index built with another model.
@@ -301,4 +302,4 @@ To be decided and written here as they are made.
 - **Comparing text (case and accents).** Decided: `TextKeys.Fold` everywhere (section 7, "Keys"). Open: whether to store folded keys for the other columns (`device_type`, `color`, `location`) if the inventory ever grows, so lookups can use SQL instead of reading every device.
 - **Limit of `n_results`.** Whether there is an upper bound (for example 20), so a client cannot ask for the whole manual. Today there is none: a value above the number of chunks returns every chunk of the device.
 - **Rebuilding the index.** Whether there is a maintenance command (or a startup mode) that re-derives the index from the inventory and the manuals folder, for a changed model or a damaged index.
-- **Slower real-model tests.** They run with the rest for now (a few seconds). If they get slow, exclude the `RealModel` trait from the normal run.
+- **Slower real-model tests.** Locally they run with the rest (a few seconds). In CI they already run in their own project and job, so a slow model never blocks the fast checks.

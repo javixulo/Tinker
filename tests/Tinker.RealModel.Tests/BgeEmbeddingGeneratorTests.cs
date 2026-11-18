@@ -1,8 +1,9 @@
 using Microsoft.Extensions.AI;
 using Tinker.Core.Embeddings;
+using Tinker.Core.Tests;
 using Xunit;
 
-namespace Tinker.Core.Tests;
+namespace Tinker.RealModel.Tests;
 
 /// <summary>
 /// Slow tests with the real model (technical spec, section 8). They need the model files in <c>models/bge-small-en-v1.5</c>

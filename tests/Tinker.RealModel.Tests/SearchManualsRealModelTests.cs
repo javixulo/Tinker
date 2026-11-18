@@ -1,8 +1,9 @@
 using Tinker.Core.Embeddings;
 using Tinker.Core.Models;
+using Tinker.Core.Tests;
 using Xunit;
 
-namespace Tinker.Core.Tests;
+namespace Tinker.RealModel.Tests;
 
 /// <summary>
 /// UC-08 with the real embedding model: the search is by meaning, not only by shared words, and the query prefix of the

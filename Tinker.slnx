@@ -6,5 +6,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/Tinker.Core.Tests/Tinker.Core.Tests.csproj" />
     <Project Path="tests/Tinker.Mcp.Tests/Tinker.Mcp.Tests.csproj" />
+    <Project Path="tests/Tinker.RealModel.Tests/Tinker.RealModel.Tests.csproj" />
   </Folder>
 </Solution>
