@@ -1,16 +1,15 @@
 using Microsoft.Extensions.AI;
 using Tinker.Core.Embeddings;
-using Tinker.Core.Tests;
+using Tinker.IntegrationTests;
 using Xunit;
 
-namespace Tinker.RealModel.Tests;
+namespace Tinker.ModelTests;
 
 /// <summary>
 /// Slow tests with the real model (technical spec, section 8). They need the model files in <c>models/bge-small-en-v1.5</c>
 /// at the repository root (or in <c>TINKER_TEST_MODEL_PATH</c>) and are skipped when they are not there. To run only these:
-/// <c>dotnet test --filter-trait "Category=RealModel"</c>.
+/// <c>dotnet test --project tests/Tinker.ModelTests</c>.
 /// </summary>
-[Trait("Category", "RealModel")]
 public sealed class BgeEmbeddingGeneratorTests : IDisposable
 {
     private readonly BgeEmbeddingGenerator _generator;

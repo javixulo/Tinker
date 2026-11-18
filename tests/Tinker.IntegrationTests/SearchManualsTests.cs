@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using Tinker.Core.Models;
 using Xunit;
 
-namespace Tinker.Core.Tests;
+namespace Tinker.IntegrationTests;
 
 /// <summary>UC-08 · Search the manuals of a device, UC-09 · Search the manuals without a result.</summary>
 public sealed class SearchManualsTests : IDisposable

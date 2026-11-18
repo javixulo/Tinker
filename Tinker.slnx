@@ -4,8 +4,9 @@
     <Project Path="src/Tinker.Mcp/Tinker.Mcp.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/Tinker.Core.Tests/Tinker.Core.Tests.csproj" />
-    <Project Path="tests/Tinker.Mcp.Tests/Tinker.Mcp.Tests.csproj" />
-    <Project Path="tests/Tinker.RealModel.Tests/Tinker.RealModel.Tests.csproj" />
+    <Project Path="tests/Tinker.UnitTests/Tinker.UnitTests.csproj" />
+    <Project Path="tests/Tinker.IntegrationTests/Tinker.IntegrationTests.csproj" />
+    <Project Path="tests/Tinker.ModelTests/Tinker.ModelTests.csproj" />
+    <Project Path="tests/Tinker.ContractTests/Tinker.ContractTests.csproj" />
   </Folder>
 </Solution>

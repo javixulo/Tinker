@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using Tinker.Core.Models;
 using Xunit;
 
-namespace Tinker.Core.Tests;
+namespace Tinker.IntegrationTests;
 
 /// <summary>UC-02 · Reject an invalid registration. A rejection changes nothing and is logged as a warning.</summary>
 public sealed class RejectRegistrationTests : IDisposable

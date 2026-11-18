@@ -1,7 +1,7 @@
 using Tinker.Core.Manuals;
 using Xunit;
 
-namespace Tinker.Core.Tests;
+namespace Tinker.UnitTests;
 
 /// <summary>How the text of a page is split into chunks (technical spec, section 7). The text is wrapped by the layout of the PDF, as PdfPig returns it.</summary>
 public sealed class TextChunkerTests

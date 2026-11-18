@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  # One build. Its artifact is what the three test jobs run: they do not check out, restore or compile anything.
+  # One build. Its artifact is what the four test jobs run: they do not check out, restore or compile anything.
   build:
     runs-on: ubuntu-latest
     steps:
@@ -42,8 +42,8 @@ jobs:
           path: tests.tar
           retention-days: 1
 
-  # Logic tests: deterministic, hash embeddings, no network.
-  logic-tests:
+  # Unit tests: pure logic, no disk, network or database.
+  unit-tests:
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -59,7 +59,26 @@ jobs:
         run: tar -xzf tests.tar
 
       - name: Test
-        run: ./tests/Tinker.Core.Tests/bin/Release/net10.0/Tinker.Core.Tests
+        run: ./tests/Tinker.UnitTests/bin/Release/net10.0/Tinker.UnitTests
+
+  # Integration tests: the services with a real SQLite database, files and PDFs (embeddings are the hash generator).
+  integration-tests:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: tests
+
+      - name: Unpack the test executables
+        run: tar -xzf tests.tar
+
+      - name: Test
+        run: ./tests/Tinker.IntegrationTests/bin/Release/net10.0/Tinker.IntegrationTests
 
   # Contract tests: the real server in process, talked to with an MCP client over HTTP.
   contract-tests:
@@ -84,11 +103,11 @@ jobs:
         run: tar -xzf tests.tar
 
       - name: Test
-        run: ./tests/Tinker.Mcp.Tests/bin/Release/net10.0/Tinker.Mcp.Tests
+        run: ./tests/Tinker.ContractTests/bin/Release/net10.0/Tinker.ContractTests
 
-  # The tests that run the real embedding model (technical spec, section 8). Same pinned revision and checksums as the
+  # Model tests: integration with the real embedding model (technical spec, section 8). Same pinned revision and checksums as the
   # Dockerfile, so CI tests the model that the image ships. The files are cached between runs.
-  real-model-tests:
+  model-tests:
     needs: build
     runs-on: ubuntu-latest
     env:
@@ -129,4 +148,4 @@ jobs:
           echo "${MODEL_VOCAB_SHA256}  models/bge-small-en-v1.5/vocab.txt" | sha256sum -c -
 
       - name: Test
-        run: ./tests/Tinker.RealModel.Tests/bin/Release/net10.0/Tinker.RealModel.Tests
+        run: ./tests/Tinker.ModelTests/bin/Release/net10.0/Tinker.ModelTests

@@ -19,7 +19,7 @@
 
   <ItemGroup>
     <!-- The test environment (temporary folders, database, registrar) is shared with the logic tests, not copied. -->
-    <Compile Include="..\Tinker.Core.Tests\TestEnvironment.cs" Link="Shared\TestEnvironment.cs" />
+    <Compile Include="..\Tinker.IntegrationTests\TestEnvironment.cs" Link="Shared\TestEnvironment.cs" />
     <Content Include="..\fixtures\manuals\**\*.pdf" Link="fixtures\manuals\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

@@ -5,7 +5,7 @@ using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using Xunit;
 
-namespace Tinker.Mcp.Tests;
+namespace Tinker.ContractTests;
 
 /// <summary>Contract tests of <c>search_manuals</c>: the real server in process, spoken to with the SDK's MCP client.</summary>
 public sealed class SearchManualsContractTests : IAsyncLifetime

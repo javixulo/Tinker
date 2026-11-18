@@ -1,15 +1,14 @@
 using Tinker.Core.Embeddings;
 using Tinker.Core.Models;
-using Tinker.Core.Tests;
+using Tinker.IntegrationTests;
 using Xunit;
 
-namespace Tinker.RealModel.Tests;
+namespace Tinker.ModelTests;
 
 /// <summary>
 /// UC-08 with the real embedding model: the search is by meaning, not only by shared words, and the query prefix of the
 /// model is applied. Skipped when the model files are not there (see <see cref="BgeEmbeddingGeneratorTests"/>).
 /// </summary>
-[Trait("Category", "RealModel")]
 public sealed class SearchManualsRealModelTests : IDisposable
 {
     private readonly BgeEmbeddingGenerator _generator;

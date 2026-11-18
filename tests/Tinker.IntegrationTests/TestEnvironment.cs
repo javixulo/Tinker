@@ -13,7 +13,7 @@ using Tinker.Core.Updating;
 using UglyToad.PdfPig.Core;
 using UglyToad.PdfPig.Writer;
 
-namespace Tinker.Core.Tests;
+namespace Tinker.IntegrationTests;
 
 /// <summary>A temporary manuals folder, a database and a registrar wired with the real pieces. Failures are injected by wrapping a port.</summary>
 public sealed class TestEnvironment : IDisposable

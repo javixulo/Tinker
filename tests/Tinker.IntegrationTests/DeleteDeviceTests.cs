@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using Tinker.Core.Models;
 using Xunit;
 
-namespace Tinker.Core.Tests;
+namespace Tinker.IntegrationTests;
 
 /// <summary>UC-03 · Delete a device, UC-04 · Fail to delete a device.</summary>
 public sealed class DeleteDeviceTests : IDisposable

@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using Tinker.Core.Models;
 using Xunit;
 
-namespace Tinker.Core.Tests;
+namespace Tinker.IntegrationTests;
 
 /// <summary>UC-05 · Find a single device, UC-06 · Find several devices, UC-07 · Find devices without a result.</summary>
 public sealed class FindDevicesTests : IDisposable

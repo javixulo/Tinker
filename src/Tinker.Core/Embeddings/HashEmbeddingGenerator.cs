@@ -6,7 +6,7 @@ namespace Tinker.Core.Embeddings;
 /// <summary>
 /// A deterministic embedding generator with no model: words are hashed into a fixed number of buckets (feature
 /// hashing) and the vector is normalized. It matches by shared words, not by meaning. It is the default until the
-/// embedding model is chosen (technical spec, section 9) and what the logic tests use. Any
+/// embedding model is chosen (technical spec, section 9) and what the integration tests use. Any
 /// <see cref="IEmbeddingGenerator{TInput, TEmbedding}"/> can replace it.
 /// </summary>
 public sealed class HashEmbeddingGenerator(int dimensions = HashEmbeddingGenerator.DefaultDimensions) : IEmbeddingGenerator<string, Embedding<float>>

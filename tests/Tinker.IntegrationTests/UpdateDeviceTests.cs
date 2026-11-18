@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using Tinker.Core.Models;
 using Xunit;
 
-namespace Tinker.Core.Tests;
+namespace Tinker.IntegrationTests;
 
 /// <summary>UC-10 · Update the data, UC-11 · Change the manuals, UC-12 · Reject an invalid update.</summary>
 public sealed class UpdateDeviceTests : IDisposable

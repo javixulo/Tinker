@@ -141,7 +141,16 @@ The image bundles the embedding model [BAAI/bge-small-en-v1.5](https://huggingfa
 dotnet test
 ```
 
-Every acceptance criterion of the functional spec is covered by at least one automated test. Logic tests are deterministic (no network, no language model); contract tests start the real server in process and talk to it with an MCP client over HTTP. The tests that run the real embedding model are in their own project, `Tinker.RealModel.Tests`, and are skipped when its files are missing; run only them with `dotnet test --project tests/Tinker.RealModel.Tests`.
+Every acceptance criterion of the functional spec is covered by at least one automated test. The tests are split by level, each in its own project:
+
+| Project | Level | What it checks |
+|---|---|---|
+| `Tinker.UnitTests` | Unit | Pure logic: no disk, network or database |
+| `Tinker.IntegrationTests` | Integration | The services with a real SQLite database, files and PDFs (embeddings are the deterministic hash generator) |
+| `Tinker.ModelTests` | Integration with the model | The real embedding model; skipped when its files are missing |
+| `Tinker.ContractTests` | Contract | The real server in process, spoken to with an MCP client over HTTP: tool names, schemas and messages |
+
+Run one level with `dotnet test --project tests/Tinker.UnitTests` (or the name of another project).
 
 ## Architecture
 
@@ -187,9 +196,10 @@ More detail, including the storage schema, the error codes and messages, and how
 |---|---|
 | `src/Tinker.Mcp/` | The MCP server: host and HTTP transport (`Program.cs`), the five tool classes (`Tools/`), configuration (`TinkerOptions.cs`) and startup validation (`Startup/`) |
 | `src/Tinker.Core/` | The logic, one folder per area: `Registration/`, `Finding/`, `Updating/`, `Removal/`, `Searching/` (a service per tool), `Manuals/` (path confinement, PDF text extraction, chunking), `Embeddings/` (BGE ONNX and hash generators), `Storage/` (SQLite inventory and manuals index, ports), `Models/` (devices, results, messages) |
-| `tests/Tinker.Core.Tests/` | Logic tests, one or more per acceptance criterion |
-| `tests/Tinker.Mcp.Tests/` | Contract tests through a real MCP client |
-| `tests/Tinker.RealModel.Tests/` | Tests that run the real embedding model (skipped without its files) |
+| `tests/Tinker.UnitTests/` | Unit tests: pure logic |
+| `tests/Tinker.IntegrationTests/` | Integration tests: services with real SQLite, files and PDFs |
+| `tests/Tinker.ModelTests/` | Integration tests with the real embedding model (skipped without its files) |
+| `tests/Tinker.ContractTests/` | Contract tests through a real MCP client |
 | `tests/fixtures/manuals/` | Public PDF manuals used by the tests |
 | `docs/` | Functional spec (what the tools do) and technical spec (how and why) |
 | `Dockerfile`, `docker-compose.yml` | Container image and deployment |
