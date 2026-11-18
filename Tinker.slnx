@@ -8,5 +8,6 @@
     <Project Path="tests/Tinker.IntegrationTests/Tinker.IntegrationTests.csproj" />
     <Project Path="tests/Tinker.ModelTests/Tinker.ModelTests.csproj" />
     <Project Path="tests/Tinker.ContractTests/Tinker.ContractTests.csproj" />
+    <Project Path="tests/Tinker.SystemTests/Tinker.SystemTests.csproj" />
   </Folder>
 </Solution>

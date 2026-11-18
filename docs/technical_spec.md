@@ -26,6 +26,7 @@ tests/Tinker.UnitTests/         Unit tests: pure logic, no disk, network or data
 tests/Tinker.IntegrationTests/  Integration tests: services with real SQLite, files and PDFs
 tests/Tinker.ModelTests/        Integration tests with the real embedding model (skipped without its files)
 tests/Tinker.ContractTests/     Contract tests through a real MCP client
+tests/Tinker.SystemTests/       System tests: complete flows against the Docker image (skipped without TINKER_SYSTEM_IMAGE)
 tests/fixtures/manuals/    Public PDF manuals used by the tests
 scripts/smoke-test.sh      Smoke test of the Docker image (section 8)
 docs/                      Functional and technical specs
@@ -285,7 +286,7 @@ If the manuals become mixed (some English, some Spanish), a multilingual model i
   - **Model** (`Tinker.ModelTests`): integration with the real embedding model (`BgeEmbeddingGeneratorTests`, `SearchManualsRealModelTests`). It links `TestEnvironment.cs` from the integration tests instead of copying it, and is skipped when the model files are not in `models/bge-small-en-v1.5` (or `TINKER_TEST_MODEL_PATH`).
   - **Contract** (`Tinker.ContractTests`): see below.
   - **Smoke** (`scripts/smoke-test.sh [image]`, built): starts the image as a non-root user on throwaway volumes and checks that the container stays up (so the startup validation passed: data and manuals folders, database, embedding model), that `/health` answers and that `tools/list` returns the five tools. It does not call the tools. The same script runs on a developer machine and in CI.
-  - **System** (not built yet): the Docker image running, spoken to as a client would, with the real model, for complete flows. Slow, so only on `main` and tags.
+  - **System** (`Tinker.SystemTests`, built): the Docker image running as a container with its own volumes, a non-root user and the real embedding model, spoken to with an MCP client as a real client would. It has no reference to the code. It checks what only the whole image can show, not what the lower levels already prove: (1) a device goes through register, find, search by meaning, update and delete; (2) the inventory and the search index survive a restart of the container; (3) a data folder that cannot be written stops the container with a message that says how to fix it. Each test starts its own container, driven with the `docker` command line (`TinkerContainer`). They are skipped unless `TINKER_SYSTEM_IMAGE` names the image (for example `docker build -t tinker-mcp . && TINKER_SYSTEM_IMAGE=tinker-mcp dotnet test --project tests/Tinker.SystemTests`), so a plain `dotnet test` stays green without Docker.
 - **CI** runs the four projects on every push to `main` and every pull request; see "Continuous integration" below.
 - **Contract tests** (`Tinker.ContractTests`) start the real server in process and talk to it with the SDK's MCP client over HTTP. They check: the tools exposed and their names, the schemas (`snake_case`), that every outcome is a normal result and not `isError`, that no raw exception ever travels, and that the trace context is propagated.
 - **Confinement tests** use a temporary folder with real links, including a link in an intermediate directory and a link whose target does not exist.
@@ -303,11 +304,11 @@ build ─┬─ unit-tests
        ├─ contract-tests
        └─ model-tests
 
-image  (independent of build: docker build + smoke test, nothing is pushed)
+image  (after build: docker build, smoke test and, on pushes to main, system tests; nothing is pushed)
 ```
 
 - **`build`** compiles the solution once in Release and uploads the test executables as an artifact.
-- **`image`** builds the Docker image (the `Dockerfile` compiles and downloads the model by itself, so none of the jobs above exercises it) and runs the smoke test (section 8) against it. It does not depend on `build` and pushes nothing.
+- **`image`** builds the Docker image (the `Dockerfile` compiles and downloads the model by itself, so none of the jobs above exercises it) and runs the smoke test and the system tests (section 8) against it. It needs `build` only for the system test executable, and pushes nothing. The system tests run only on pushes to `main`, not on pull requests, because they are the slowest.
 - **The four test jobs** need `build` and run in parallel, each one a test project (section 8, "Levels"). A failure in one does not hide the result of the others.
 
 **Decisions behind it.**
@@ -318,7 +319,7 @@ image  (independent of build: docker build + smoke test, nothing is pushed)
 - **`contract-tests` is the only job that checks out**, and only `src/Tinker.Mcp` (sparse checkout): `WebApplicationFactory` resolves the content root of the server project from the source tree.
 - **`model-tests` downloads the embedding model** from the same pinned Hugging Face revision as the `Dockerfile`, checks its SHA-256 and caches it (`actions/cache`, keyed by the revision), then points the tests to it with `TINKER_TEST_MODEL_PATH`. So CI tests the model the image ships, and a changed file fails the job. When the revision changes in the `Dockerfile`, change it in the workflow too.
 
-**Not built yet.** The system tests against the image, and publishing it to GitHub Container Registry (`ghcr.io`) when a `v*` tag is pushed, with the version and `latest` as tags (not `latest` for pre-releases) and for `linux/amd64` and `linux/arm64`. The first publication would use a pre-release tag (for example `v0.1.0-rc1`): the package is born private, so it can be pulled and checked before making it public. In pull requests only `amd64` would be built, since `arm64` is emulated and slow. The system tests are slow, so they would run on `main` and tags, not on every pull request, and the smoke test stays right before publishing `latest`.
+**Not built yet.** Publishing the image to GitHub Container Registry (`ghcr.io`) when a `v*` tag is pushed, with the version and `latest` as tags (not `latest` for pre-releases) and for `linux/amd64` and `linux/arm64`. The first publication would use a pre-release tag (for example `v0.1.0-rc1`): the package is born private, so it can be pulled and checked before making it public. In pull requests only `amd64` would be built, since `arm64` is emulated and slow. The smoke and system tests would run right before publishing, so an image that does not start never reaches the registry.
 
 ## 9. Open questions
 

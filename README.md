@@ -149,14 +149,15 @@ Every acceptance criterion of the functional spec is covered by at least one aut
 | `Tinker.IntegrationTests` | Integration | The services with a real SQLite database, files and PDFs (embeddings are the deterministic hash generator) |
 | `Tinker.ModelTests` | Integration with the model | The real embedding model; skipped when its files are missing |
 | `Tinker.ContractTests` | Contract | The real server in process, spoken to with an MCP client over HTTP: tool names, schemas and messages |
+| `Tinker.SystemTests` | System | The Docker image running with the real model: a device's whole life, data surviving a restart, a clear failure on a bad data folder. Skipped unless `TINKER_SYSTEM_IMAGE` is set |
 
-Run one level with `dotnet test --project tests/Tinker.UnitTests` (or the name of another project).
+Run one level with `dotnet test --project tests/Tinker.UnitTests` (or the name of another project). The system tests need the image: `docker build -t tinker-mcp . && TINKER_SYSTEM_IMAGE=tinker-mcp dotnet test --project tests/Tinker.SystemTests`.
 
 ### Continuous integration
 
 [![CI](https://github.com/javixulo/Tinker/actions/workflows/ci.yml/badge.svg)](https://github.com/javixulo/Tinker/actions/workflows/ci.yml)
 
-GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) builds the solution once on every push to `main` and every pull request, then runs the four test projects in parallel. A separate job builds the Docker image and runs `scripts/smoke-test.sh` against it (you can run it too: `docker build -t tinker-mcp . && scripts/smoke-test.sh tinker-mcp`). The model tests download the same pinned embedding model that the Docker image ships. Publishing the Docker image is not automated yet. More detail in [`docs/technical_spec.md`](docs/technical_spec.md), section 8.
+GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) builds the solution once on every push to `main` and every pull request, then runs the four test projects in parallel. Another job builds the Docker image, runs `scripts/smoke-test.sh` against it and, on pushes to `main`, the system tests (you can run it too: `docker build -t tinker-mcp . && scripts/smoke-test.sh tinker-mcp`). The model tests download the same pinned embedding model that the Docker image ships. Publishing the Docker image is not automated yet. More detail in [`docs/technical_spec.md`](docs/technical_spec.md), section 8.
 
 ## Architecture
 
@@ -206,6 +207,7 @@ More detail, including the storage schema, the error codes and messages, and how
 | `tests/Tinker.IntegrationTests/` | Integration tests: services with real SQLite, files and PDFs |
 | `tests/Tinker.ModelTests/` | Integration tests with the real embedding model (skipped without its files) |
 | `tests/Tinker.ContractTests/` | Contract tests through a real MCP client |
+| `tests/Tinker.SystemTests/` | System tests against the Docker image |
 | `tests/fixtures/manuals/` | Public PDF manuals used by the tests |
 | `docs/` | Functional spec (what the tools do) and technical spec (how and why) |
 | `Dockerfile`, `docker-compose.yml` | Container image and deployment |
