@@ -19,7 +19,7 @@ The `Dockerfile` is not here: it is in the repository root (`../Dockerfile`) and
 ## Steps
 
 1. Requirements (the `manuals/` folder is git-ignored: if it is empty, `./up.sh` fills it with the public PDFs of `../tests/fixtures/manuals`, or copy them yourself with `cp -R ../tests/fixtures/manuals/. manuals/`):
-    Docker running (with Colima: `colima start`), `jq` and `sqlite3`, and the model files in `../models/bge-small-en-v1.5/` (`model.onnx` and `vocab.txt`; see the main README).
+    Docker running (with Colima: `colima start`), `jq` and `sqlite3`. The embedding model is downloaded when the image is built (the first build needs network and downloads about 130 MB).
 2. `docker compose up --build` (or `docker-compose`, with `-d` to leave it in the background) — builds the image (the first time takes a few minutes) and starts the server. `./up.sh` does the same and waits until it is healthy.
 3. `./scenarios.sh` — or call by hand, e.g. `./call.sh '{"brand":"Shelly","model":"Dimmer 2","manuals":["shelly/dimmer_2_guide.pdf"]}'` and then `./find.sh '{"brand":"shelly"}'` (`./find.sh '{}'` lists every device).
 4. `./db.sh "SELECT * FROM devices"` — see what was stored. After a rejection nothing must have changed.

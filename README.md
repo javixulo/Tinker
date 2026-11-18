@@ -5,7 +5,7 @@ MCP server that keeps an inventory of home devices and answers from their manual
 ## Requirements
 
 - .NET SDK 10 (see `global.json`), or Docker.
-- The embedding model files in `models/bge-small-en-v1.5/`: `model.onnx` (the `onnx` folder) and `vocab.txt` of [BAAI/bge-small-en-v1.5](https://huggingface.co/BAAI/bge-small-en-v1.5). They are git-ignored. Without them the server does not start (or set `Tinker__EmbeddingModel=hash` for development).
+- To run outside Docker: the embedding model files in `models/bge-small-en-v1.5/`: `model.onnx` (the `onnx` folder) and `vocab.txt` of [BAAI/bge-small-en-v1.5](https://huggingface.co/BAAI/bge-small-en-v1.5). They are git-ignored. Without them the server does not start (or set `Tinker__EmbeddingModel=hash` for development). The Docker image downloads them itself when it is built.
 
 ## Run
 
@@ -22,10 +22,10 @@ claude mcp add --transport http tinker http://localhost:5000/mcp
 ## Docker
 
 ```bash
-TINKER_DATA=/path/to/data TINKER_MANUALS=/path/to/manuals TINKER_MODELS=/path/to/models TINKER_UID=$(id -u) TINKER_GID=$(id -g) docker compose up -d --build
+TINKER_DATA=/path/to/data TINKER_MANUALS=/path/to/manuals TINKER_UID=$(id -u) TINKER_GID=$(id -g) docker compose up -d --build
 ```
 
-See `docker-compose.yml` for the variables. The data folder must be on a local disk and writable by `TINKER_UID`; manuals and models are mounted read-only. The container has a health check on `/health` and `restart: unless-stopped`.
+See `docker-compose.yml` for the variables. The data folder must be on a local disk and writable by `TINKER_UID`; the manuals are mounted read-only. The embedding model (about 130 MB) is downloaded when the image is built, from a pinned revision and checked against its SHA-256, so the first build needs network and the container needs none. The container has a health check on `/health` and `restart: unless-stopped`.
 
 ## Tests
 
