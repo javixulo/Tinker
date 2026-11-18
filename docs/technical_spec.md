@@ -28,7 +28,7 @@ tests/fixtures/manuals/    Public PDF manuals used by the tests
 docs/                      Functional and technical specs
 ```
 
-**Status.** `Tinker.Core`, `Tinker.Mcp` (web SDK, `WithHttpTransport`, `MapMcp("/mcp")`, `/health`), `Tinker.Core.Tests` and `Tinker.Mcp.Tests` exist, with `register_device` (UC-01 and UC-02), `delete_device` (UC-03 and UC-04) and `find_devices` (UC-05 to UC-07) implemented. `search_manuals` is not yet. The placeholder `ping` tool is gone. Configuration is read from the `Tinker` section (`Tinker__DataPath`, `Tinker__ManualsPath`). OpenTelemetry is exported through OTLP only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+**Status.** `Tinker.Core`, `Tinker.Mcp` (web SDK, `WithHttpTransport`, `MapMcp("/mcp")`, `/health`), `Tinker.Core.Tests` and `Tinker.Mcp.Tests` exist, with `register_device` (UC-01 and UC-02), `delete_device` (UC-03 and UC-04), `find_devices` (UC-05 to UC-07) and `search_manuals` (UC-08 and UC-09) implemented: all four tools exist. The placeholder `ping` tool is gone. Configuration is read from the `Tinker` section (`Tinker__DataPath`, `Tinker__ManualsPath`). OpenTelemetry is exported through OTLP only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
 
 ## 3. Observability
 
@@ -96,6 +96,7 @@ docs/                      Functional and technical specs
 - JSON property names are `snake_case` (`device_id`, `device_type`, `purchase_date`, `n_results`), as the clients expect. C# types are records with `PascalCase` properties, and the server's JSON options use `JsonNamingPolicy.SnakeCaseLower`. The SDK default is `camelCase`, so a contract test checks the schemas.
 - Dates are `yyyy-MM-dd` (`DateOnly`). `status` is a lowercase string (`active`, `stored`, `sold`, `discarded`). An absent optional value is `null`.
 - A `device_id` that comes in the `device` of `register_device` is ignored.
+- The SDK uses the C# parameter names as the argument names of a tool, and the naming policy above does not apply to them. So the top-level parameters of `search_manuals` are written in snake_case in `SearchManualsTool` (`device_id`, `query`, `n_results`), with the analyzer rules turned off for that class; the contract test checks the schema.
 - Results are typed objects returned as the tool result, as structured content, with the schema generated from the C# types. The exact SDK settings are confirmed in a spike.
 
 **Outcomes are data, not protocol errors.** A rejection, an empty result and `failed` are all a normal tool result with `ok` and the `errors` or `error` of the functional spec. The MCP `isError` flag is not used for them. So the client always reads the same shape.
@@ -127,7 +128,7 @@ docs/                      Functional and technical specs
 |---|---|
 | `invalid_fields` (register) | `Missing or blank required fields: {fields}. Ask the user for them and call register_device again.` or, for a `status` that is not one of the four, `Invalid status: '{status}'. It must be one of: active, stored, sold, discarded. Fix it or leave it out and call register_device again.` |
 | `invalid_fields` (delete) | `No property was given. Give at least one property of the device (for example brand and model) to identify it. Nothing was deleted.` |
-| `invalid_fields` (search) | `` `query` is blank: it must be the text to look for in the manuals. `` or `` `n_results` must be 1 or more: it is the number of excerpts to return. `` |
+| `invalid_fields` (search) | `` `device_id` is missing: it is the id of the device whose manuals are searched. Get it with find_devices. ``, `` `query` is blank: it must be the text to look for in the manuals. `` or `` `n_results` must be 1 or more: it is the number of excerpts to return. ``. When several arguments are wrong, one error carries all the messages joined by a space, so the client fixes them in one go |
 | `manual_not_allowed` | `Manual not allowed: {path} (outside the manuals folder). Use a path relative to the manuals folder.` or `Manual not allowed: {path} (its path cannot contain ``..``). Use a path relative to the manuals folder.` |
 | `manual_not_found` | `Manual not found: {path}. Check the path with the user.` |
 | `manual_in_use` | `Manual already belongs to another device: {path}. That device is in the error. Do not register the manual twice.` |
@@ -183,6 +184,7 @@ CREATE TABLE device_urls (
 - **Keys.** `brand_key` and `model_key` are `TextKeys.Fold` of the brand and the model: trimmed, each run of whitespace collapsed to one space, lowercase and without accents (decompose to FormD, drop the non-spacing marks, compose to FormC). Nothing else is ignored (no hyphens). `Fold` is the **only** text comparison of the project, so the duplicate rule of `register_device`, `find_devices` and `delete_device` always agree: `Philips Hué` and `Philips Hue` are one device. SQLite's `COLLATE NOCASE` ignores the case of ASCII letters only and cannot remove accents, which is why the keys are computed in code and stored.
 - **Deletion.** `delete_device` finds its device the same way as `find_devices`: `DeviceMatcher` (in `Finding`) turns the given properties into criteria and is the one place that decides what matches, used by `DeviceFinder` and `DeviceRemover`. Then `IInventory.DeleteAsync(device_id)` deletes the row (manuals and URLs go by cascade) and `IManualsIndex.DeleteByDeviceAsync` deletes its chunks, both in one transaction; if the index fails the device row comes back. If the device disappears between the lookup and the delete (another request got there first), the answer is `device_not_found`. The manual files are never touched.
 - **Lookups.** `find_devices` does not use SQL to compare text. `IInventory.ListAllAsync` returns every device and `DeviceFinder` filters in memory with `TextKeys.Fold`. A home inventory has tens of devices, so reading them all costs nothing; if it ever grows, store a folded key per column (see section 9).
+- **Searching.** `ManualSearcher` checks that the device exists, then asks the index. If the index returns nothing it looks the device up once more, so a device deleted in between is `device_not_found` and not "no extractable text".
 - **Races.** If two registrations pass the checks together, the `UNIQUE` constraints decide: the loser is rolled back and gets `device_exists` or `manual_in_use`, as if the check had caught it.
 - **Queries.** They are built from an allowlist of columns, with every value as a parameter. A value from the client is never concatenated into SQL.
 - Manuals and URLs come back in the order they were given (insertion order).
@@ -193,7 +195,7 @@ CREATE TABLE device_urls (
 
 - `AddAsync(deviceId, chunks)`: adds the chunks of a device.
 - `DeleteByDeviceAsync(deviceId)`: deletes every chunk of a device.
-- `SearchAsync(deviceId, queryText, count)`: the **only** way to read content. It takes a `device_id` and always filters by it, so a search can never return chunks of another device. There is no method that searches without it.
+- `SearchAsync(deviceId, queryText, count)`: the **only** way to read content. It takes a `device_id` and always filters by it, so a search can never return chunks of another device. There is no method that searches without it. The index embeds `queryText` exactly as given and returns the best `count` chunks (`Chunk`: text, `device_id`, manual, page), most relevant first, by cosine similarity; equal scores keep the order of the manual. It has no minimum score. An empty list means the device has no chunks.
 
 A chunk has its text, `device_id`, manual (relative path), page (from 1), the embedding and a deterministic id made of `device_id`, manual path and chunk number (counted over the whole manual, not per page), so a retry never duplicates chunks. 
 
@@ -231,7 +233,7 @@ Sharing the file couples the two stores, so the coupling is kept as small as pos
 
 ### Embedding model
 
-**Decided.** `BAAI/bge-small-en-v1.5`: English only, 384 dimensions, about 130 MB, run on the CPU with ONNX Runtime (`BgeEmbeddingGenerator`, with `Microsoft.ML.Tokenizers` for the WordPiece vocabulary). Pooling is the CLS token followed by L2 normalization. A passage is embedded as is; a search query goes with the prefix `BgeEmbeddingGenerator.QueryPrefix` in front, which is the job of `ManualSearcher` (UC-08).
+**Decided.** `BAAI/bge-small-en-v1.5`: English only, 384 dimensions, about 130 MB, run on the CPU with ONNX Runtime (`BgeEmbeddingGenerator`, with `Microsoft.ML.Tokenizers` for the WordPiece vocabulary). Pooling is the CLS token followed by L2 normalization. A passage is embedded as is; a search query goes with the prefix `BgeEmbeddingGenerator.QueryPrefix` in front, which is the job of `ManualSearcher` (UC-08): it receives the prefix as a constructor argument (`Program.cs` passes `QueryPrefix` for the bge model and nothing for the model-free `hash` generator, which would otherwise match on the prefix words), trims the query and puts the prefix in front.
 
 **Why this one, and the assumption behind it.** All the manuals are assumed to be in English, and the queries too (the client can translate a query before calling `search_manuals`). Under that assumption an English model is the simplest: smaller, faster to register on the NAS CPU, and better at retrieval than `all-MiniLM-L6-v2`. The functional question about languages (functional spec, section 3) is answered *English only, for now*.
 
@@ -276,6 +278,6 @@ To be decided and written here as they are made.
 - **Case-insensitive file systems.** On macOS (and Windows) `Shelly/A.pdf` and `shelly/a.pdf` are the same file but would be stored as two manuals. Docker on the NAS is Linux, so it is not a problem there; to decide whether the resolver should canonicalize the case.
 - **Registration time.** Registering reads and embeds every manual inside the call. On the NAS CPU, a long manual may take longer than a client is willing to wait. Options: leave it synchronous and measure, report progress, or register in the background and return before the content is searchable (which would change the functional contract).
 - **Comparing text (case and accents).** Decided: `TextKeys.Fold` everywhere (section 7, "Keys"). Open: whether to store folded keys for the other columns (`device_type`, `color`, `location`) if the inventory ever grows, so lookups can use SQL instead of reading every device.
-- **Limit of `n_results`.** Whether there is an upper bound (for example 20), so a client cannot ask for the whole manual.
+- **Limit of `n_results`.** Whether there is an upper bound (for example 20), so a client cannot ask for the whole manual. Today there is none: a value above the number of chunks returns every chunk of the device.
 - **Rebuilding the index.** Whether there is a maintenance command (or a startup mode) that re-derives the index from the inventory and the manuals folder, for a changed model or a damaged index.
 - **Slower real-model tests.** They run with the rest for now (a few seconds). If they get slow, exclude the `RealModel` trait from the normal run.

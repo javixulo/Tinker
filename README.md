@@ -45,4 +45,4 @@ dotnet test
 
 ## Status
 
-`register_device` (UC-01, UC-02), `find_devices` (UC-05 to UC-07) and `delete_device` (UC-03, UC-04) are implemented. `search_manuals` is not yet.
+`register_device` (UC-01, UC-02), `find_devices` (UC-05 to UC-07) `delete_device` (UC-03, UC-04) and `search_manuals` (UC-08, UC-09) are implemented: all four tools.

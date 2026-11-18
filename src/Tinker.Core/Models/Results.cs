@@ -29,6 +29,16 @@ public sealed record DeletionResult(bool Ok, Device? Device, DeviceError? Error 
     public static DeletionResult Failure(DeviceError error) => new(false, null, error);
 }
 
+/// <summary>Outcome of <c>search_manuals</c>. <c>Message</c> is set when there is nothing to return: why, and what to do next.</summary>
+public sealed record SearchResult(bool Ok, IReadOnlyList<Chunk> Chunks, string? Message = null, DeviceError? Error = null)
+{
+    public static SearchResult Found(IReadOnlyList<Chunk> chunks) => new(true, chunks);
+
+    public static SearchResult Empty(string message) => new(true, [], message);
+
+    public static SearchResult Failure(DeviceError error) => new(false, [], null, error);
+}
+
 /// <summary>An excerpt of a manual.</summary>
 public sealed record Chunk(string Text, long DeviceId, string Manual, int Page);
 

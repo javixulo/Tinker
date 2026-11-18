@@ -23,7 +23,7 @@ public sealed class BgeEmbeddingGeneratorTests : IDisposable
 
     public void Dispose() => _generator.Dispose();
 
-    private static string? ModelPath()
+    internal static string? ModelPath()
     {
         var fromEnvironment = Environment.GetEnvironmentVariable("TINKER_TEST_MODEL_PATH");
         if (fromEnvironment is not null)

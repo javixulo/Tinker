@@ -44,4 +44,11 @@ public interface IManualsIndex
     Task AddAsync(long deviceId, IReadOnlyList<IndexedChunk> chunks, CancellationToken cancellationToken = default);
 
     Task DeleteByDeviceAsync(long deviceId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The only way to read content. It always filters by <paramref name="deviceId"/>, so a search can never return the
+    /// chunks of another device. Returns at most <paramref name="count"/> chunks, the most relevant first; empty when
+    /// the device has no chunks. The index embeds <paramref name="queryText"/> as it is given.
+    /// </summary>
+    Task<IReadOnlyList<Chunk>> SearchAsync(long deviceId, string queryText, int count, CancellationToken cancellationToken = default);
 }

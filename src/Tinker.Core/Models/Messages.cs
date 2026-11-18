@@ -44,6 +44,19 @@ public static class Messages
 
     public const string NoDevices = "There are no registered devices. Register one with register_device.";
 
+    public const string MissingDeviceId =
+        "`device_id` is missing: it is the id of the device whose manuals are searched. Get it with find_devices.";
+
+    public const string BlankQuery = "`query` is blank: it must be the text to look for in the manuals.";
+
+    public const string InvalidResultCount = "`n_results` must be 1 or more: it is the number of excerpts to return.";
+
+    public static string SearchDeviceNotFound(long deviceId) =>
+        $"The device id {deviceId} does not exist. Use find_devices to get a valid device_id.";
+
+    public const string NoExtractableText =
+        "The manuals of this device have no extractable text (for example, they are scanned), so nothing can be answered from them. Tell the user.";
+
     public static string Failed(string operation) =>
         $"{operation} failed because of an internal problem, not because of the request. Nothing was changed. Tell the user instead of retrying. Trace id: {Activity.Current?.TraceId.ToString() ?? "none"}.";
 }

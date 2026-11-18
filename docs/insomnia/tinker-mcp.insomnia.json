@@ -27,7 +27,19 @@
       },
       "color": null,
       "isPrivate": false,
-      "metaSortKey": 1763391000000
+      "metaSortKey": 1763391000000,
+      "kvPairData": [
+        {
+          "id": "envPair_base_url",
+          "name": "base_url",
+          "value": "http://localhost:8080",
+          "type": "str",
+          "enabled": true
+        }
+      ],
+      "created": 1763391000000,
+      "modified": 1763391000000,
+      "environmentType": "kv"
     },
     {
       "_id": "fld_discovery",
@@ -833,7 +845,7 @@
       "description": "",
       "environment": {},
       "environmentPropertyOrder": null,
-      "metaSortKey": -1763390999994,
+      "metaSortKey": -1763390999992,
       "created": 1763391000000,
       "modified": 1763391000000
     },
@@ -845,7 +857,7 @@
       "description": "",
       "environment": {},
       "environmentPropertyOrder": null,
-      "metaSortKey": -1763390999993,
+      "metaSortKey": -1763390999991,
       "created": 1763391000000,
       "modified": 1763391000000
     },
@@ -1034,6 +1046,286 @@
       "authentication": {},
       "parameters": [],
       "metaSortKey": -1763390999894,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "fld_uc08",
+      "_type": "request_group",
+      "parentId": "wrk_tinker_mcp",
+      "name": "UC-08 Search the manuals of a device",
+      "description": "",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": -1763390999994,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "fld_uc09",
+      "_type": "request_group",
+      "parentId": "wrk_tinker_mcp",
+      "name": "UC-09 Search the manuals without a result",
+      "description": "",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": -1763390999993,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_28",
+      "_type": "request",
+      "parentId": "fld_uc08",
+      "name": "1 Search the manuals",
+      "description": "Criterion 1. Device 1 (Shelly Dimmer 2) from UC-01. Expect ok=true and up to 3 chunks, the most relevant first, each with text, device_id 1, manual \"shelly/dimmer_2_guide.pdf\" and its page. message is empty.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"search_manuals\",\n    \"arguments\": {\n      \"device_id\": 1,\n      \"query\": \"how do I install and wire the dimmer\",\n      \"n_results\": 3\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999899,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_29",
+      "_type": "request",
+      "parentId": "fld_uc08",
+      "name": "2 Only that device",
+      "description": "Criterion 2. The same query on device 2 (Fibaro Double Smart). Expect every chunk to have device_id 2 and manual \"fibaro/fgs_2x3_en_manual.pdf\", although the query is about a dimmer. Compare with request 1.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"search_manuals\",\n    \"arguments\": {\n      \"device_id\": 2,\n      \"query\": \"how do I install and wire the dimmer\",\n      \"n_results\": 3\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999898,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_30",
+      "_type": "request",
+      "parentId": "fld_uc08",
+      "name": "3 One result",
+      "description": "Criterion 3. n_results 1. Expect exactly one chunk: the first one of request 1.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"search_manuals\",\n    \"arguments\": {\n      \"device_id\": 1,\n      \"query\": \"how do I install and wire the dimmer\",\n      \"n_results\": 1\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999897,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_31",
+      "_type": "request",
+      "parentId": "fld_uc08",
+      "name": "3b Default number of results",
+      "description": "Criterion 3. No n_results. Expect at most 5 chunks (the default).",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"search_manuals\",\n    \"arguments\": {\n      \"device_id\": 1,\n      \"query\": \"how do I install and wire the dimmer\"\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999896,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_32",
+      "_type": "request",
+      "parentId": "fld_uc09",
+      "name": "1 The device does not exist",
+      "description": "Criterion 1. Expect ok=false and a device_not_found error that says to use find_devices to get a valid device_id.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"search_manuals\",\n    \"arguments\": {\n      \"device_id\": 999,\n      \"query\": \"how do I install and wire the dimmer\"\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999899,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_33",
+      "_type": "request",
+      "parentId": "fld_uc09",
+      "name": "2 Blank query",
+      "description": "Criterion 2. Expect ok=false and an invalid_fields error that says query is blank.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"search_manuals\",\n    \"arguments\": {\n      \"device_id\": 1,\n      \"query\": \"   \"\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999898,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_34",
+      "_type": "request",
+      "parentId": "fld_uc09",
+      "name": "2b Number of results below one",
+      "description": "Criterion 2. Expect ok=false and an invalid_fields error that says n_results must be 1 or more.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"search_manuals\",\n    \"arguments\": {\n      \"device_id\": 1,\n      \"query\": \"how do I install and wire the dimmer\",\n      \"n_results\": 0\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999897,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_35",
+      "_type": "request",
+      "parentId": "fld_uc09",
+      "name": "2c Everything wrong at once",
+      "description": "Criterion 2. No device_id, a blank query and n_results -1. Expect one invalid_fields error whose message names the three problems.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"search_manuals\",\n    \"arguments\": {\n      \"query\": \"\",\n      \"n_results\": -1\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999896,
       "settingStoreCookies": true,
       "settingSendCookies": true,
       "settingFollowRedirects": "global",

@@ -16,6 +16,7 @@ using Tinker.Core.Removal;
 using Tinker.Core.Storage;
 using Tinker.Mcp;
 using Tinker.Mcp.Startup;
+using Tinker.Core.Searching;
 using Tinker.Mcp.Tools;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -53,6 +54,12 @@ builder.Services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>>(sp 
 builder.Services.AddSingleton<DeviceRegistrar>();
 builder.Services.AddSingleton<DeviceFinder>();
 builder.Services.AddSingleton<DeviceRemover>();
+builder.Services.AddSingleton(sp => new ManualSearcher(
+    sp.GetRequiredService<IInventory>(),
+    sp.GetRequiredService<IManualsIndex>(),
+    sp.GetRequiredService<ILogger<ManualSearcher>>(),
+    // A bge model wants a prefix in front of a query; the model-free hash generator does not.
+    sp.GetRequiredService<TinkerOptions>().EmbeddingModel == "hash" ? "" : BgeEmbeddingGenerator.QueryPrefix));
 
 // The contract uses snake_case (technical spec, section 6). Outcomes are plain results, never protocol errors.
 var json = new JsonSerializerOptions(JsonSerializerDefaults.Web)
@@ -67,7 +74,8 @@ builder.Services
     .WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless)
     .WithTools<RegisterDeviceTool>(json)
     .WithTools<FindDevicesTool>(json)
-    .WithTools<DeleteDeviceTool>(json);
+    .WithTools<DeleteDeviceTool>(json)
+    .WithTools<SearchManualsTool>(json);
 
 var app = builder.Build();
 

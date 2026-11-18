@@ -1,6 +1,6 @@
 # Home Manuals MCP (C#) — Functional Specification (DRAFT)
 
-> Draft in review: use cases and acceptance criteria, one section per tool. The four tools (`register_device`, `delete_device`, `find_devices` and `search_manuals`) are drafted. Implemented so far: `register_device`, `delete_device` and `find_devices`.
+> Draft in review: use cases and acceptance criteria, one section per tool. The four tools (`register_device`, `delete_device`, `find_devices` and `search_manuals`) are drafted. All four are implemented.
 
 ## 1. Device information model
 
@@ -255,14 +255,14 @@ The client gets an empty result, or the lookup fails. Either way it is told what
 
 ### 2.4 Tool `search_manuals`
 
-A tool to search the manuals of a device.
+A tool to search the manuals of a device. Excerpts with the same relevance come in the order of the manual.
 
 **Input**
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `device_id` | integer | Yes | The device whose manuals are searched. The client gets it from `find_devices` |
-| `query` | text | Yes | Free text in natural language: what to look for in the manuals, e.g. a question or a description. It has no special syntax (no operators or wildcards). The search is by meaning, not only by exact words. It must not be blank |
+| `device_id` | integer | Yes | The device whose manuals are searched. The client gets it from `find_devices`. If it is missing, the answer is `invalid_fields` |
+| `query` | text | Yes | Free text in natural language: what to look for in the manuals, e.g. a question or a description. It has no special syntax (no operators or wildcards). The search is by meaning, not only by exact words. It must not be blank. Spaces before and after are ignored |
 | `n_results` | integer | No | Maximum number of excerpts to return. At least 1. Default 5 |
 
 **Output** (`SearchResult`)
@@ -307,4 +307,4 @@ The client gets an empty result, or the search fails. Either way it is told what
 
 - **Case and accents.** **Decided, for every tool:** text is compared in lowercase, without accents and ignoring the spaces before, after and between words. It applies to `find_devices`, to `delete_device` (which matches as it does) and to the duplicate rule of `register_device` (brand and model). One function in the code, `TextKeys.Fold`.
 - **Language of the manuals and the queries.** **Decided for now: English only.** All manuals are assumed to be in English, and so are the queries (the client translates them if needed). That allowed an English embedding model (technical spec, section 7). If manuals in other languages appear, the model must change and the index be rebuilt; the steps are in the technical spec.
-- **The `query` of `search_manuals`.** To review what the query is and how it is used: free natural-language text matched by meaning (as drafted in the input table), or something else (e.g. keywords, filters, a mix of both). Not clear yet; to revisit when the search is implemented and the vector store and embedding model are chosen.
+- **The `query` of `search_manuals`.** **Decided for now:** free natural-language text in English, matched by meaning, as drafted in the input table. The vector store and the embedding model are chosen (technical spec, section 7). The search always returns the best `n_results` excerpts of the device, with no minimum relevance: a weak match is still returned, and the client judges from the text. Keywords, filters or a mix with exact-word search (FTS5) are not needed yet; revisit them if real manuals show that exact terms (model numbers, error codes) are missed.

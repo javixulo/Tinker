@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Microsoft.Extensions.AI;
+using Tinker.Core.Models;
 
 namespace Tinker.Core.Storage;
 
@@ -57,6 +58,52 @@ public sealed class SqliteManualsIndex(SqliteDatabase database, IEmbeddingGenera
             await command.ExecuteNonQueryAsync(cancellationToken);
             return null;
         });
+
+    public async Task<IReadOnlyList<Chunk>> SearchAsync(long deviceId, string queryText, int count, CancellationToken cancellationToken = default)
+    {
+        // Embed first, outside any database access: the cosine similarity is computed in C# over the chunks of this device only.
+        var generated = await embeddings.GenerateAsync([queryText], cancellationToken: cancellationToken);
+        var query = generated[0].Vector.ToArray();
+        var queryNorm = Norm(query);
+
+        return await database.UseAsync<IReadOnlyList<Chunk>>(async (connection, transaction) =>
+        {
+            var scored = new List<(double Score, Chunk Chunk)>();
+            using var command = SqliteInventory.Command(connection, transaction,
+                "SELECT text, manual, page, embedding FROM chunks WHERE device_id = $id ORDER BY rowid");
+            command.Parameters.AddWithValue("$id", deviceId);
+            using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var bytes = (byte[])reader["embedding"];
+                if (bytes.Length != query.Length * sizeof(float))
+                {
+                    throw new InvalidOperationException("The manuals index has vectors of another size than the embedding model. The index must be rebuilt.");
+                }
+
+                var vector = new float[query.Length];
+                Buffer.BlockCopy(bytes, 0, vector, 0, bytes.Length);
+                scored.Add((Cosine(query, queryNorm, vector), new Chunk(reader.GetString(0), deviceId, reader.GetString(1), reader.GetInt32(2))));
+            }
+
+            // OrderByDescending is stable: equal scores keep the order of the manual, so the answer is deterministic.
+            return scored.OrderByDescending(s => s.Score).Take(count).Select(s => s.Chunk).ToList();
+        });
+    }
+
+    private static double Norm(float[] vector) => Math.Sqrt(vector.Sum(x => (double)x * x));
+
+    private static double Cosine(float[] query, double queryNorm, float[] vector)
+    {
+        double dot = 0;
+        for (var i = 0; i < query.Length; i++)
+        {
+            dot += (double)query[i] * vector[i];
+        }
+
+        var norm = queryNorm * Norm(vector);
+        return norm == 0 ? 0 : dot / norm;
+    }
 
     /// <summary>Vectors of two models cannot be compared: the index records the model that built it.</summary>
     private async Task CheckModelAsync(Microsoft.Data.Sqlite.SqliteConnection connection, Microsoft.Data.Sqlite.SqliteTransaction? transaction, int dimensions, CancellationToken cancellationToken)

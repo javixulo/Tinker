@@ -5,6 +5,7 @@ using Tinker.Core.Embeddings;
 using Tinker.Core.Finding;
 using Tinker.Core.Manuals;
 using Tinker.Core.Models;
+using Tinker.Core.Searching;
 using Tinker.Core.Registration;
 using Tinker.Core.Removal;
 using Tinker.Core.Storage;
@@ -29,7 +30,8 @@ public sealed class TestEnvironment : IDisposable
         Func<IManualsIndex, IManualsIndex>? wrapIndex = null,
         IManualTextExtractor? extractor = null,
         IEmbeddingGenerator<string, Embedding<float>>? embeddings = null,
-        string? brokenDatabasePath = null)
+        string? brokenDatabasePath = null,
+        string queryPrefix = "")
     {
         Directory.CreateDirectory(ManualsPath);
         Directory.CreateDirectory(Path.GetDirectoryName(DatabasePath)!);
@@ -46,6 +48,7 @@ public sealed class TestEnvironment : IDisposable
         Finder = new DeviceFinder(inventory, LoggerFactory.Create(b => b.AddProvider(Logs)).CreateLogger<DeviceFinder>());
         var wrappedIndex = wrapIndex?.Invoke(Index) ?? Index;
         Remover = new DeviceRemover(inventory, wrappedIndex, Database, LoggerFactory.Create(b => b.AddProvider(Logs)).CreateLogger<DeviceRemover>());
+        Searcher = new ManualSearcher(inventory, wrappedIndex, LoggerFactory.Create(b => b.AddProvider(Logs)).CreateLogger<ManualSearcher>(), queryPrefix);
         Registrar = new DeviceRegistrar(
             new ManualPathResolver(ManualsPath),
             inventory,
@@ -61,6 +64,8 @@ public sealed class TestEnvironment : IDisposable
     public DeviceFinder Finder { get; }
 
     public DeviceRemover Remover { get; }
+
+    public ManualSearcher Searcher { get; }
 
     /// <summary>Devices hold lists, so records compare by reference: compare their JSON instead.</summary>
     public static string Json(Device device) => System.Text.Json.JsonSerializer.Serialize(device);
@@ -181,6 +186,9 @@ public sealed class ThrowingIndex(IManualsIndex inner) : IManualsIndex
     }
 
     public Task DeleteByDeviceAsync(long deviceId, CancellationToken cancellationToken = default) => inner.DeleteByDeviceAsync(deviceId, cancellationToken);
+
+    public Task<IReadOnlyList<Chunk>> SearchAsync(long deviceId, string queryText, int count, CancellationToken cancellationToken = default) =>
+        inner.SearchAsync(deviceId, queryText, count, cancellationToken);
 }
 
 /// <summary>
@@ -241,4 +249,39 @@ public sealed class ThrowingDeleteIndex(IManualsIndex inner) : IManualsIndex
         await inner.DeleteByDeviceAsync(deviceId, cancellationToken);
         throw new InvalidOperationException("The index broke while deleting.");
     }
+
+    public Task<IReadOnlyList<Chunk>> SearchAsync(long deviceId, string queryText, int count, CancellationToken cancellationToken = default) =>
+        inner.SearchAsync(deviceId, queryText, count, cancellationToken);
+}
+
+/// <summary>An index whose search breaks, and that remembers the query text it was given.</summary>
+public sealed class SearchSpyIndex(IManualsIndex inner, bool fail = false) : IManualsIndex
+{
+    public List<(long DeviceId, string QueryText, int Count)> Searches { get; } = [];
+
+    public Task AddAsync(long deviceId, IReadOnlyList<IndexedChunk> chunks, CancellationToken cancellationToken = default) => inner.AddAsync(deviceId, chunks, cancellationToken);
+
+    public Task DeleteByDeviceAsync(long deviceId, CancellationToken cancellationToken = default) => inner.DeleteByDeviceAsync(deviceId, cancellationToken);
+
+    public Task<IReadOnlyList<Chunk>> SearchAsync(long deviceId, string queryText, int count, CancellationToken cancellationToken = default)
+    {
+        Searches.Add((deviceId, queryText, count));
+        return fail ? throw new InvalidOperationException("The index broke while searching.") : inner.SearchAsync(deviceId, queryText, count, cancellationToken);
+    }
+}
+
+/// <summary>A hash generator that can be broken after the registration, like a model that fails when it is used.</summary>
+public sealed class FlakyEmbeddings : IEmbeddingGenerator<string, Embedding<float>>
+{
+    private readonly HashEmbeddingGenerator _inner = new();
+
+    public bool Broken { get; set; }
+
+    public Task<GeneratedEmbeddings<Embedding<float>>> GenerateAsync(
+        IEnumerable<string> values, EmbeddingGenerationOptions? options = null, CancellationToken cancellationToken = default) =>
+        Broken ? throw new InvalidOperationException("The model broke.") : _inner.GenerateAsync(values, options, cancellationToken);
+
+    public object? GetService(Type serviceType, object? serviceKey = null) => _inner.GetService(serviceType, serviceKey);
+
+    public void Dispose() => _inner.Dispose();
 }
