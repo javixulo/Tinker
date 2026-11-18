@@ -156,7 +156,7 @@ Run one level with `dotnet test --project tests/Tinker.UnitTests` (or the name o
 
 [![CI](https://github.com/javixulo/Tinker/actions/workflows/ci.yml/badge.svg)](https://github.com/javixulo/Tinker/actions/workflows/ci.yml)
 
-GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) builds the solution once on every push to `main` and every pull request, then runs the four test projects in parallel. The model tests download the same pinned embedding model that the Docker image ships. Publishing the Docker image is not automated yet. More detail in [`docs/technical_spec.md`](docs/technical_spec.md), section 8.
+GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) builds the solution once on every push to `main` and every pull request, then runs the four test projects in parallel. A separate job builds the Docker image and runs `scripts/smoke-test.sh` against it (you can run it too: `docker build -t tinker-mcp . && scripts/smoke-test.sh tinker-mcp`). The model tests download the same pinned embedding model that the Docker image ships. Publishing the Docker image is not automated yet. More detail in [`docs/technical_spec.md`](docs/technical_spec.md), section 8.
 
 ## Architecture
 
@@ -209,6 +209,7 @@ More detail, including the storage schema, the error codes and messages, and how
 | `tests/fixtures/manuals/` | Public PDF manuals used by the tests |
 | `docs/` | Functional spec (what the tools do) and technical spec (how and why) |
 | `Dockerfile`, `docker-compose.yml` | Container image and deployment |
+| `scripts/smoke-test.sh` | Smoke test of the Docker image: it starts, `/health` answers and the tools are listed |
 
 ## License
 

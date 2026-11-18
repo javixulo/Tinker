@@ -149,3 +149,17 @@ jobs:
 
       - name: Test
         run: ./tests/Tinker.ModelTests/bin/Release/net10.0/Tinker.ModelTests
+
+  # The Docker image is another artifact, with its own build (the Dockerfile compiles by itself and downloads the model),
+  # that the jobs above never touch. It is built but not pushed anywhere, and a smoke test checks that it starts, passes
+  # its startup validation and lists the tools. It does not depend on `build`.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the image
+        run: docker build -t tinker-mcp:ci .
+
+      - name: Smoke test
+        run: scripts/smoke-test.sh tinker-mcp:ci
