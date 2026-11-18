@@ -9,10 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  # Everything deterministic: logic tests (hash embeddings) and contract tests (the real server in process). The real
-  # model tests live in their own project and run in the next job.
-  # Fast, no network, and it is the check that must always be green.
-  build-and-test:
+  # One build; the three test jobs below reuse its output instead of compiling again.
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,15 +22,62 @@ jobs:
       - name: Build
         run: dotnet build -c Release
 
-      - name: Logic tests
+      # A tar keeps the executable bits that upload-artifact would drop (the test projects are executables).
+      - name: Pack the build output
+        run: tar -cf build.tar src/*/bin src/*/obj tests/*/bin tests/*/obj
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: build.tar
+          retention-days: 1
+
+  # Logic tests: deterministic, hash embeddings, no network.
+  logic-tests:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: build
+
+      - name: Unpack the build output
+        run: tar -xf build.tar
+
+      - name: Test
         run: dotnet test --project tests/Tinker.Core.Tests -c Release --no-build
 
-      - name: Contract tests
+  # Contract tests: the real server in process, talked to with an MCP client over HTTP.
+  contract-tests:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: build
+
+      - name: Unpack the build output
+        run: tar -xf build.tar
+
+      - name: Test
         run: dotnet test --project tests/Tinker.Mcp.Tests -c Release --no-build
 
   # The tests that run the real embedding model (technical spec, section 8). Same pinned revision and checksums as the
   # Dockerfile, so CI tests the model that the image ships. The files are cached between runs.
   real-model-tests:
+    needs: build
     runs-on: ubuntu-latest
     env:
       MODEL_REVISION: 5c38ec7c405ec4b44b94cc5a9bb96e735b38267a
@@ -45,6 +90,13 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: build
+
+      - name: Unpack the build output
+        run: tar -xf build.tar
 
       - name: Cache the embedding model
         id: model-cache
@@ -66,5 +118,5 @@ jobs:
           echo "${MODEL_ONNX_SHA256}  models/bge-small-en-v1.5/model.onnx" | sha256sum -c -
           echo "${MODEL_VOCAB_SHA256}  models/bge-small-en-v1.5/vocab.txt" | sha256sum -c -
 
-      - name: Test (real model)
-        run: dotnet test --project tests/Tinker.RealModel.Tests -c Release
+      - name: Test
+        run: dotnet test --project tests/Tinker.RealModel.Tests -c Release --no-build
