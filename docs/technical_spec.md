@@ -28,7 +28,7 @@ tests/fixtures/manuals/    Public PDF manuals used by the tests
 docs/                      Functional and technical specs
 ```
 
-**Status.** `Tinker.Core`, `Tinker.Mcp` (web SDK, `WithHttpTransport`, `MapMcp("/mcp")`, `/health`), `Tinker.Core.Tests` and `Tinker.Mcp.Tests` exist, with `register_device` (UC-01 and UC-02) implemented. The other tools are not yet. The placeholder `ping` tool is gone. Configuration is read from the `Tinker` section (`Tinker__DataPath`, `Tinker__ManualsPath`). OpenTelemetry is exported through OTLP only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+**Status.** `Tinker.Core`, `Tinker.Mcp` (web SDK, `WithHttpTransport`, `MapMcp("/mcp")`, `/health`), `Tinker.Core.Tests` and `Tinker.Mcp.Tests` exist, with `register_device` (UC-01 and UC-02) and `find_devices` (UC-05 to UC-07) implemented. The other tools are not yet. The placeholder `ping` tool is gone. Configuration is read from the `Tinker` section (`Tinker__DataPath`, `Tinker__ManualsPath`). OpenTelemetry is exported through OTLP only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
 
 ## 3. Observability
 
@@ -139,6 +139,8 @@ docs/                      Functional and technical specs
 | `find_devices` empty | `No registered device matches ({listed}). Ask the user for other details, or register the device.` or `There are no registered devices. Register one with register_device.` |
 | `search_manuals` empty | `The manuals of this device have no extractable text (for example, they are scanned), so nothing can be answered from them. Tell the user.` |
 
+`{listed}` is the properties given as `name: value` pairs, with the names of the contract, separated by commas (`brand: Samsung, location: Garage`); a list is given as its items separated by `;`.
+
 ## 7. Storage
 
 **Proposed.**
@@ -176,7 +178,8 @@ CREATE TABLE device_urls (
 - **`AUTOINCREMENT`** so a `device_id` is never reused after a deletion. Without it, a client holding an old id from `find_devices` could hit a new, different device.
 - **The database is the guarantee.** The checks in code give clear reasons, but the `UNIQUE` constraints decide: two simultaneous registrations cannot both pass.
 - `brand` and `model` are stored as the client wrote them. `brand_key` and `model_key` are the normalized values.
-- **Keys.** `brand_key` and `model_key` are the brand and model trimmed, with each run of whitespace collapsed to one space, and compared ignoring case. Nothing else (no hyphens, no accents). How case is compared is an open question (section 9).
+- **Keys.** `brand_key` and `model_key` are the brand and model trimmed, with each run of whitespace collapsed to one space, and compared ignoring case. Nothing else (no hyphens, no accents): `TextKeys.Normalize`. They only serve the duplicate rule of `register_device`.
+- **Lookups.** `find_devices` does not use SQL to compare text. `IInventory.ListAllAsync` returns every device and `DeviceFinder` filters in memory with `TextKeys.Fold` (`Normalize` plus removing the accents: decompose to FormD, drop the non-spacing marks, compose to FormC), because SQLite's `COLLATE NOCASE` ignores the case of ASCII letters only. A home inventory has tens of devices, so reading them all costs nothing; if it ever grows, store a folded key per column (see section 9).
 - **Races.** If two registrations pass the checks together, the `UNIQUE` constraints decide: the loser is rolled back and gets `device_exists` or `manual_in_use`, as if the check had caught it.
 - **Queries.** They are built from an allowlist of columns, with every value as a parameter. A value from the client is never concatenated into SQL.
 - Manuals and URLs come back in the order they were given (insertion order).
@@ -269,7 +272,7 @@ To be decided and written here as they are made.
 - **Unreadable or unsupported manuals.** What `register_device` does with a manual that exists but cannot be used: not a PDF, corrupt, or protected by a password. The functional spec has no criterion for it. Today the extraction exception is caught by the guard and the client gets `failed` ("tell the user instead of retrying"), with nothing stored; that is misleading, because the cause is the file and not the server. It needs a use case or criterion there, and probably its own error code.
 - **Case-insensitive file systems.** On macOS (and Windows) `Shelly/A.pdf` and `shelly/a.pdf` are the same file but would be stored as two manuals. Docker on the NAS is Linux, so it is not a problem there; to decide whether the resolver should canonicalize the case.
 - **Registration time.** Registering reads and embeds every manual inside the call. On the NAS CPU, a long manual may take longer than a client is willing to wait. Options: leave it synchronous and measure, report progress, or register in the background and return before the content is searchable (which would change the functional contract).
-- **Comparing text (case and accents).** SQLite's `COLLATE NOCASE` ignores the case of ASCII letters only, so "Habitación" and "habitación" would not match. Locations and types in Spanish need an accent-aware comparison: either normalize to a lowercase key on write and compare keys (as for `brand_key` and `model_key`), or collate in code. Goes with the case-sensitivity question of the functional spec.
+- **Comparing text (case and accents).** Decided for lookups: `TextKeys.Fold` in code, over all the devices (section 7, "Lookups"). Open: whether `brand_key` and `model_key` should use it too (the duplicate rule would then ignore accents, and the keys of existing rows would have to be recomputed in a migration), and whether to store folded keys if the inventory ever grows. Goes with the open question in the functional spec, section 3.
 - **Limit of `n_results`.** Whether there is an upper bound (for example 20), so a client cannot ask for the whole manual.
 - **Rebuilding the index.** Whether there is a maintenance command (or a startup mode) that re-derives the index from the inventory and the manuals folder, for a changed model or a damaged index.
 - **Slower real-model tests.** They run with the rest for now (a few seconds). If they get slow, exclude the `RealModel` trait from the normal run.

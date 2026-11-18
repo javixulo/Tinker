@@ -1,6 +1,6 @@
 # Insomnia collection
 
-`tinker-mcp.insomnia.json` has one request per scenario of `register_device` (UC-01 and UC-02), plus `Health` (`GET /health`), `tools/list` and `initialize` (optional, see below). Each request is a JSON-RPC `POST` to the MCP endpoint, with the headers Streamable HTTP needs (`Accept: application/json, text/event-stream`).
+`tinker-mcp.insomnia.json` has one request per scenario of `register_device` (UC-01 and UC-02) and of `find_devices` (UC-05 to UC-07), plus `Health` (`GET /health`), `tools/list` and `initialize` (optional, see below). Each request is a JSON-RPC `POST` to the MCP endpoint, with the headers Streamable HTTP needs (`Accept: application/json, text/event-stream`).
 
 **Import:** Insomnia → Import → this file. It also opens in Bruno and Postman.
 
@@ -14,6 +14,12 @@
 | UC-02 · 1, 2 and 4c | `ok: false`; they reuse a manual that UC-01 already registered, so `manual_in_use` comes together with `device_exists` / `invalid_fields` |
 | UC-02 · the rest | `ok: false`, with the error code its name says |
 | UC-02 · 10 | five errors at once |
+| UC-05 · 1 and 2 | `ok: true` with Fibaro Double Smart only |
+| UC-06 · 1, 2 and 3 | both devices; only Shelly Dimmer 2; both devices |
+| UC-07 · 1 and 2 | `ok: true`, empty list and a `message` |
+| UC-07 · 3 | only from an empty database: `ok: true`, empty list, "no registered devices". Run it before the registrations |
+
+The two devices of UC-01 share a location and a color so the `find_devices` requests have something in common; UC-01 · 1 sets them for that reason.
 
 The response is Server-Sent Events (`event: message` and a `data:` line with the JSON-RPC answer); the result is in `result.structuredContent`.
 

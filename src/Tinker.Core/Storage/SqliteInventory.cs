@@ -25,6 +25,28 @@ public sealed class SqliteInventory(SqliteDatabase database) : IInventory
             return await LoadAsync(connection, transaction, await command.ExecuteScalarAsync(cancellationToken), cancellationToken);
         });
 
+    public Task<IReadOnlyList<Device>> ListAllAsync(CancellationToken cancellationToken = default) =>
+        database.UseAsync<IReadOnlyList<Device>>(async (connection, transaction) =>
+        {
+            var ids = new List<long>();
+            using (var command = Command(connection, transaction, "SELECT device_id FROM devices ORDER BY device_id"))
+            using (var reader = await command.ExecuteReaderAsync(cancellationToken))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    ids.Add(reader.GetInt64(0));
+                }
+            }
+
+            var devices = new List<Device>(ids.Count);
+            foreach (var id in ids)
+            {
+                devices.Add((await LoadAsync(connection, transaction, id, cancellationToken))!);
+            }
+
+            return devices;
+        });
+
     public Task<Device> InsertAsync(Device device, CancellationToken cancellationToken = default) =>
         database.UseAsync(async (connection, transaction) =>
         {

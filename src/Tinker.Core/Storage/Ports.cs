@@ -23,6 +23,9 @@ public interface IInventory
     /// <summary>The device that owns the manual (path relative to the manuals folder), if any.</summary>
     Task<Device?> FindByManualAsync(string manual, CancellationToken cancellationToken = default);
 
+    /// <summary>Every registered device with its manuals and URLs, ordered by <c>device_id</c>. A home inventory is small, so matching is done in memory.</summary>
+    Task<IReadOnlyList<Device>> ListAllAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Stores the device with its manuals and URLs and returns it with its new <c>device_id</c>.</summary>
     /// <exception cref="InventoryConflictException">The brand and model, or a manual, are already registered.</exception>
     Task<Device> InsertAsync(Device device, CancellationToken cancellationToken = default);

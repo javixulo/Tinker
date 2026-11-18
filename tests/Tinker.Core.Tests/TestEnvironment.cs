@@ -2,6 +2,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Tinker.Core.Embeddings;
+using Tinker.Core.Finding;
 using Tinker.Core.Manuals;
 using Tinker.Core.Models;
 using Tinker.Core.Registration;
@@ -40,9 +41,11 @@ public sealed class TestEnvironment : IDisposable
         var generator = embeddings ?? new HashEmbeddingGenerator();
         Inventory = new SqliteInventory(Database);
         Index = new SqliteManualsIndex(Database, generator);
+        var inventory = wrapInventory?.Invoke(Inventory) ?? Inventory;
+        Finder = new DeviceFinder(inventory, LoggerFactory.Create(b => b.AddProvider(Logs)).CreateLogger<DeviceFinder>());
         Registrar = new DeviceRegistrar(
             new ManualPathResolver(ManualsPath),
-            wrapInventory?.Invoke(Inventory) ?? Inventory,
+            inventory,
             wrapIndex?.Invoke(Index) ?? Index,
             Database,
             extractor ?? new PdfPigTextExtractor(),
@@ -51,6 +54,8 @@ public sealed class TestEnvironment : IDisposable
     }
 
     public DeviceRegistrar Registrar { get; }
+
+    public DeviceFinder Finder { get; }
 
     /// <summary>Devices hold lists, so records compare by reference: compare their JSON instead.</summary>
     public static string Json(Device device) => System.Text.Json.JsonSerializer.Serialize(device);
@@ -185,6 +190,8 @@ public sealed class RacyInventory(IInventory inner) : IInventory
     public Task<Device?> FindByManualAsync(string manual, CancellationToken cancellationToken = default) =>
         Blind ? Task.FromResult<Device?>(null) : inner.FindByManualAsync(manual, cancellationToken);
 
+    public Task<IReadOnlyList<Device>> ListAllAsync(CancellationToken cancellationToken = default) => inner.ListAllAsync(cancellationToken);
+
     public async Task<Device> InsertAsync(Device device, CancellationToken cancellationToken = default)
     {
         Blind = false;
@@ -196,4 +203,19 @@ public sealed class ThrowingExtractor : IManualTextExtractor
 {
     public Task<IReadOnlyList<string>> ExtractPagesAsync(string fullPath, CancellationToken cancellationToken = default) =>
         throw new InvalidOperationException("The manual could not be read.");
+}
+
+/// <summary>An inventory that cannot be read, like a database that fails under a lookup.</summary>
+public sealed class UnreadableInventory(IInventory inner) : IInventory
+{
+    public Task<Device?> FindByBrandAndModelAsync(string brand, string model, CancellationToken cancellationToken = default) =>
+        inner.FindByBrandAndModelAsync(brand, model, cancellationToken);
+
+    public Task<Device?> FindByManualAsync(string manual, CancellationToken cancellationToken = default) =>
+        inner.FindByManualAsync(manual, cancellationToken);
+
+    public Task<IReadOnlyList<Device>> ListAllAsync(CancellationToken cancellationToken = default) =>
+        throw new InvalidOperationException("The database is unreadable.");
+
+    public Task<Device> InsertAsync(Device device, CancellationToken cancellationToken = default) => inner.InsertAsync(device, cancellationToken);
 }

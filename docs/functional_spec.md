@@ -202,7 +202,7 @@ A tool to find devices based on search criteria.
 |---|---|---|---|
 | `device` | Device | Yes | The properties to look for: any fields of a Device, none of them required (including `device_id`). A field that is empty or has only spaces counts as not given |
 
-A device matches when every given field is equal to the same field of the device, comparing the whole value (for a list, when the device has every item given). With no field given, every device matches.
+A device matches when every given field is equal to the same field of the device, comparing the whole value (for a list, when the device has every item given). Text is compared in lowercase, without accents and ignoring the spaces before, after and between words (`Habitación` and ` habitacion ` are the same); part of a value is not a match. With no field given, every device matches.
 
 **Output** (`FindDevicesResult`)
 
@@ -305,6 +305,6 @@ The client gets an empty result, or the search fails. Either way it is told what
 
 ## 3. Open questions
 
-- **Case sensitivity.** Whether text is compared ignoring upper and lower case, and where. Today it is assumed in `find_devices`, in `delete_device` (which matches as `find_devices` does) and in the duplicate rule of `register_device` (brand and model). To decide once, for all the tools.
+- **Case and accents.** **Decided for `find_devices`** (and so for `delete_device`, which matches as it does): text is compared in lowercase and without accents. **Still to decide:** the duplicate rule of `register_device` (brand and model) ignores case and spaces but not accents, so `Philips Hué` and `Philips Hue` are two devices while a lookup treats them as the same. To align it, the stored keys would have to be rebuilt (technical spec, section 7).
 - **Language of the manuals and the queries.** **Decided for now: English only.** All manuals are assumed to be in English, and so are the queries (the client translates them if needed). That allowed an English embedding model (technical spec, section 7). If manuals in other languages appear, the model must change and the index be rebuilt; the steps are in the technical spec.
 - **The `query` of `search_manuals`.** To review what the query is and how it is used: free natural-language text matched by meaning (as drafted in the input table), or something else (e.g. keywords, filters, a mix of both). Not clear yet; to revisit when the search is implemented and the vector store and embedding model are chosen.

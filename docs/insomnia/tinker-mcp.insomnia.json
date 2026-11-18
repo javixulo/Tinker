@@ -66,6 +66,298 @@
       "modified": 1763391000000
     },
     {
+      "_id": "fld_uc05",
+      "_type": "request_group",
+      "parentId": "wrk_tinker_mcp",
+      "name": "UC-05 Find a single device",
+      "description": "",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": -1763390999997,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "fld_uc06",
+      "_type": "request_group",
+      "parentId": "wrk_tinker_mcp",
+      "name": "UC-06 Find several devices",
+      "description": "",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": -1763390999996,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "fld_uc07",
+      "_type": "request_group",
+      "parentId": "wrk_tinker_mcp",
+      "name": "UC-07 Find devices without a result",
+      "description": "",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": -1763390999995,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_14",
+      "_type": "request",
+      "parentId": "fld_uc05",
+      "name": "1 Unique property",
+      "description": "Criterion 1. Expect ok=true and only Fibaro Double Smart, with all its information; message is empty.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"find_devices\",\n    \"arguments\": {\n      \"device\": {\n        \"model\": \"Double Smart\"\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999900,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_15",
+      "_type": "request",
+      "parentId": "fld_uc05",
+      "name": "2 Several properties",
+      "description": "Criterion 2. Case, accents and extra spaces are ignored. Expect only Fibaro Double Smart (type and brand tell it apart from the other device in the Salon).",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"find_devices\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \"FIBARO\",\n        \"location\": \" sal\\u00f3n \",\n        \"device_type\": \"switch\"\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999899,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_16",
+      "_type": "request",
+      "parentId": "fld_uc06",
+      "name": "1 Shared property",
+      "description": "Criterion 1. Expect both devices, ordered by device_id (they share the location).",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"find_devices\",\n    \"arguments\": {\n      \"device\": {\n        \"location\": \"Salon\"\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999898,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_17",
+      "_type": "request",
+      "parentId": "fld_uc06",
+      "name": "2 Every property must match",
+      "description": "Criterion 2. Expect only Shelly Dimmer 2: both share location and color, only it is a Shelly.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"find_devices\",\n    \"arguments\": {\n      \"device\": {\n        \"location\": \"Salon\",\n        \"color\": \"White\",\n        \"brand\": \"Shelly\"\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999897,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_18",
+      "_type": "request",
+      "parentId": "fld_uc06",
+      "name": "3 List every device",
+      "description": "Criterion 3. No property (or only blank ones): every device, ordered by device_id.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"find_devices\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \"  \",\n        \"model\": \"\"\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999896,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_19",
+      "_type": "request",
+      "parentId": "fld_uc07",
+      "name": "1 No device matches",
+      "description": "Criterion 1. Expect ok=true, an empty list and a message that lists the properties and says what to do next.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"find_devices\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \"Samsung\",\n        \"location\": \"Garage\"\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999895,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_20",
+      "_type": "request",
+      "parentId": "fld_uc07",
+      "name": "2 Part of a value",
+      "description": "Criterion 2. Same as criterion 1: the whole value must match, and \"Dimmer\" is only part of \"Dimmer 2\".",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"find_devices\",\n    \"arguments\": {\n      \"device\": {\n        \"model\": \"Dimmer\"\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999894,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
+      "_id": "req_tinker_21",
+      "_type": "request",
+      "parentId": "fld_uc07",
+      "name": "3 No device registered",
+      "description": "Criterion 3. Only from an EMPTY database (Sample/down.sh --reset, then start the server and run this first). Expect an empty list and a message that says to register a device.",
+      "method": "POST",
+      "url": "{{ _.base_url }}/mcp",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"find_devices\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \"Shelly\"\n      }\n    }\n  }\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "Accept",
+          "value": "application/json, text/event-stream"
+        }
+      ],
+      "authentication": {},
+      "parameters": [],
+      "metaSortKey": -1763390999893,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingFollowRedirects": "global",
+      "settingEncodeUrl": true,
+      "created": 1763391000000,
+      "modified": 1763391000000
+    },
+    {
       "_id": "req_tinker_health",
       "_type": "request",
       "parentId": "fld_discovery",
@@ -154,12 +446,12 @@
       "_type": "request",
       "parentId": "fld_uc01",
       "name": "1 Required fields",
-      "description": "Criterion 1. Expect ok=true, device_id assigned.",
+      "description": "Criterion 1. Expect ok=true, device_id assigned. Color and location are optional: they are here so that the find_devices requests have a value that two devices share.",
       "method": "POST",
       "url": "{{ _.base_url }}/mcp",
       "body": {
         "mimeType": "application/json",
-        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"register_device\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \"Shelly\",\n        \"model\": \"Dimmer 2\",\n        \"manuals\": [\n          \"shelly/dimmer_2_guide.pdf\"\n        ]\n      }\n    }\n  }\n}"
+        "text": "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": 1,\n  \"method\": \"tools/call\",\n  \"params\": {\n    \"name\": \"register_device\",\n    \"arguments\": {\n      \"device\": {\n        \"brand\": \"Shelly\",\n        \"model\": \"Dimmer 2\",\n        \"manuals\": [\n          \"shelly/dimmer_2_guide.pdf\"\n        ],\n        \"color\": \"White\",\n        \"location\": \"Salon\"\n      }\n    }\n  }\n}"
       },
       "headers": [
         {

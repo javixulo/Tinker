@@ -9,6 +9,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Tinker.Core;
 using Tinker.Core.Embeddings;
+using Tinker.Core.Finding;
 using Tinker.Core.Manuals;
 using Tinker.Core.Registration;
 using Tinker.Core.Storage;
@@ -49,6 +50,7 @@ builder.Services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>>(sp 
     };
 });
 builder.Services.AddSingleton<DeviceRegistrar>();
+builder.Services.AddSingleton<DeviceFinder>();
 
 // The contract uses snake_case (technical spec, section 6). Outcomes are plain results, never protocol errors.
 var json = new JsonSerializerOptions(JsonSerializerDefaults.Web)
@@ -61,7 +63,8 @@ var json = new JsonSerializerOptions(JsonSerializerDefaults.Web)
 builder.Services
     .AddMcpServer()
     .WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless)
-    .WithTools<RegisterDeviceTool>(json);
+    .WithTools<RegisterDeviceTool>(json)
+    .WithTools<FindDevicesTool>(json);
 
 var app = builder.Build();
 
