@@ -236,6 +236,21 @@ public sealed class SearchManualsTests : IDisposable
     }
 
     [Fact]
+    [Trait("Criteria", "UC-09.4")]
+    public async Task A_device_without_manuals_gives_an_empty_list_and_says_so()
+    {
+        var registered = await _env.Registrar.RegisterAsync(new Device { Brand = "Shelly", Model = "Dimmer 2" });
+
+        var result = await Search(registered.Device!.DeviceId, "wifi");
+
+        Assert.True(result.Ok);
+        Assert.Empty(result.Chunks);
+        Assert.Equal(
+            "This device has no manuals, so nothing can be answered. Tell the user, who can add manuals with update_device.",
+            result.Message);
+    }
+
+    [Fact]
     [Trait("Criteria", "UC-09.3")]
     public async Task Manuals_without_text_give_an_empty_list_and_a_message_for_the_client()
     {

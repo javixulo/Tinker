@@ -30,6 +30,13 @@ public interface IInventory
     /// <exception cref="InventoryConflictException">The brand and model, or a manual, are already registered.</exception>
     Task<Device> InsertAsync(Device device, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Replaces every field of the device, with its manuals and URLs, keeping its <c>device_id</c>. Returns the device as stored,
+    /// or null when there is no such device.
+    /// </summary>
+    /// <exception cref="InventoryConflictException">The brand and model, or a manual, belong to another device.</exception>
+    Task<Device?> UpdateAsync(Device device, CancellationToken cancellationToken = default);
+
     /// <summary>Deletes the device with its manuals and URLs (by cascade). Returns false when there is no such device.</summary>
     Task<bool> DeleteAsync(long deviceId, CancellationToken cancellationToken = default);
 }
@@ -44,6 +51,9 @@ public interface IManualsIndex
     Task AddAsync(long deviceId, IReadOnlyList<IndexedChunk> chunks, CancellationToken cancellationToken = default);
 
     Task DeleteByDeviceAsync(long deviceId, CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes the chunks of one manual (path relative to the manuals folder) of a device.</summary>
+    Task DeleteByManualAsync(long deviceId, string manual, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// The only way to read content. It always filters by <paramref name="deviceId"/>, so a search can never return the

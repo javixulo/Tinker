@@ -59,6 +59,16 @@ public sealed class SqliteManualsIndex(SqliteDatabase database, IEmbeddingGenera
             return null;
         });
 
+    public Task DeleteByManualAsync(long deviceId, string manual, CancellationToken cancellationToken = default) =>
+        database.UseAsync<object?>(async (connection, transaction) =>
+        {
+            using var command = SqliteInventory.Command(connection, transaction, "DELETE FROM chunks WHERE device_id = $id AND manual = $manual");
+            command.Parameters.AddWithValue("$id", deviceId);
+            command.Parameters.AddWithValue("$manual", manual);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            return null;
+        });
+
     public async Task<IReadOnlyList<Chunk>> SearchAsync(long deviceId, string queryText, int count, CancellationToken cancellationToken = default)
     {
         // Embed first, outside any database access: the cosine similarity is computed in C# over the chunks of this device only.

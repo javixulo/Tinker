@@ -7,6 +7,7 @@ namespace Tinker.Core.Storage;
 public sealed class SqliteInventory(SqliteDatabase database) : IInventory
 {
     private const int SqliteConstraint = 19;
+    private static readonly string[] ChildTables = ["device_manuals", "device_urls"];
 
     public Task<Device?> FindByBrandAndModelAsync(string brand, string model, CancellationToken cancellationToken = default) =>
         database.UseAsync(async (connection, transaction) =>
@@ -62,39 +63,92 @@ public sealed class SqliteInventory(SqliteDatabase database) : IInventory
                     RETURNING device_id
                     """))
                 {
-                    command.Parameters.AddWithValue("$brand", device.Brand);
-                    command.Parameters.AddWithValue("$model", device.Model);
-                    command.Parameters.AddWithValue("$brand_key", TextKeys.Fold(device.Brand));
-                    command.Parameters.AddWithValue("$model_key", TextKeys.Fold(device.Model));
-                    command.Parameters.AddWithValue("$device_type", (object?)device.DeviceType ?? DBNull.Value);
-                    command.Parameters.AddWithValue("$color", (object?)device.Color ?? DBNull.Value);
-                    command.Parameters.AddWithValue("$location", (object?)device.Location ?? DBNull.Value);
-                    command.Parameters.AddWithValue("$invoice", (object?)device.Invoice ?? DBNull.Value);
-                    command.Parameters.AddWithValue("$purchase_date", (object?)device.PurchaseDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? DBNull.Value);
-                    command.Parameters.AddWithValue("$warranty_end_date", (object?)device.WarrantyEndDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? DBNull.Value);
-                    command.Parameters.AddWithValue("$status", (object?)device.Status ?? DBNull.Value);
+                    AddFields(command, device);
                     id = (long)(await command.ExecuteScalarAsync(cancellationToken))!;
                 }
 
-                foreach (var manual in device.Manuals ?? [])
-                {
-                    await InsertChildAsync(connection, transaction, "device_manuals", "path", id, manual, cancellationToken);
-                }
-
-                foreach (var url in device.Urls ?? [])
-                {
-                    await InsertChildAsync(connection, transaction, "device_urls", "url", id, url, cancellationToken);
-                }
-
+                await InsertChildrenAsync(connection, transaction, id, device, cancellationToken);
                 return (await LoadAsync(connection, transaction, id, cancellationToken))!;
             }
-            catch (SqliteException error) when (error.SqliteErrorCode == SqliteConstraint && error.Message.Contains("UNIQUE", StringComparison.Ordinal))
+            catch (SqliteException error) when (IsUniqueViolation(error))
             {
                 // The database is the guarantee: the checks in code give reasons, the constraints decide.
-                var conflict = error.Message.Contains("device_manuals", StringComparison.Ordinal) ? Conflict.ManualInUse : Conflict.DeviceExists;
-                throw new InventoryConflictException(conflict, error);
+                throw ToConflict(error);
             }
         });
+
+    public Task<Device?> UpdateAsync(Device device, CancellationToken cancellationToken = default) =>
+        database.UseAsync(async (connection, transaction) =>
+        {
+            try
+            {
+                var id = device.DeviceId!.Value;
+                using (var command = Command(connection, transaction,
+                    """
+                    UPDATE devices SET brand = $brand, model = $model, brand_key = $brand_key, model_key = $model_key,
+                                       device_type = $device_type, color = $color, location = $location, invoice = $invoice,
+                                       purchase_date = $purchase_date, warranty_end_date = $warranty_end_date, status = $status
+                    WHERE device_id = $id
+                    """))
+                {
+                    AddFields(command, device);
+                    command.Parameters.AddWithValue("$id", id);
+                    if (await command.ExecuteNonQueryAsync(cancellationToken) == 0)
+                    {
+                        return null;
+                    }
+                }
+
+                foreach (var table in ChildTables)
+                {
+                    using var delete = Command(connection, transaction, $"DELETE FROM {table} WHERE device_id = $id");
+                    delete.Parameters.AddWithValue("$id", id);
+                    await delete.ExecuteNonQueryAsync(cancellationToken);
+                }
+
+                await InsertChildrenAsync(connection, transaction, id, device, cancellationToken);
+                return await LoadAsync(connection, transaction, id, cancellationToken);
+            }
+            catch (SqliteException error) when (IsUniqueViolation(error))
+            {
+                throw ToConflict(error);
+            }
+        });
+
+    private static void AddFields(SqliteCommand command, Device device)
+    {
+        command.Parameters.AddWithValue("$brand", device.Brand);
+        command.Parameters.AddWithValue("$model", device.Model);
+        command.Parameters.AddWithValue("$brand_key", TextKeys.Fold(device.Brand));
+        command.Parameters.AddWithValue("$model_key", TextKeys.Fold(device.Model));
+        command.Parameters.AddWithValue("$device_type", (object?)device.DeviceType ?? DBNull.Value);
+        command.Parameters.AddWithValue("$color", (object?)device.Color ?? DBNull.Value);
+        command.Parameters.AddWithValue("$location", (object?)device.Location ?? DBNull.Value);
+        command.Parameters.AddWithValue("$invoice", (object?)device.Invoice ?? DBNull.Value);
+        command.Parameters.AddWithValue("$purchase_date", (object?)device.PurchaseDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? DBNull.Value);
+        command.Parameters.AddWithValue("$warranty_end_date", (object?)device.WarrantyEndDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? DBNull.Value);
+        command.Parameters.AddWithValue("$status", (object?)device.Status ?? DBNull.Value);
+    }
+
+    private static async Task InsertChildrenAsync(
+        SqliteConnection connection, SqliteTransaction? transaction, long id, Device device, CancellationToken cancellationToken)
+    {
+        foreach (var manual in device.Manuals ?? [])
+        {
+            await InsertChildAsync(connection, transaction, "device_manuals", "path", id, manual, cancellationToken);
+        }
+
+        foreach (var url in device.Urls ?? [])
+        {
+            await InsertChildAsync(connection, transaction, "device_urls", "url", id, url, cancellationToken);
+        }
+    }
+
+    private static bool IsUniqueViolation(SqliteException error) =>
+        error.SqliteErrorCode == SqliteConstraint && error.Message.Contains("UNIQUE", StringComparison.Ordinal);
+
+    private static InventoryConflictException ToConflict(SqliteException error) =>
+        new(error.Message.Contains("device_manuals", StringComparison.Ordinal) ? Conflict.ManualInUse : Conflict.DeviceExists, error);
 
     public Task<bool> DeleteAsync(long deviceId, CancellationToken cancellationToken = default) =>
         database.UseAsync(async (connection, transaction) =>

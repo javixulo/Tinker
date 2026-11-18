@@ -11,6 +11,14 @@ public sealed record RegistrationResult(bool Ok, IReadOnlyList<DeviceError> Erro
     public static RegistrationResult Failure(params DeviceError[] errors) => new(false, errors, null);
 }
 
+/// <summary>Outcome of <c>update_device</c>. <c>Device</c> is the device as stored after the edit.</summary>
+public sealed record UpdateResult(bool Ok, IReadOnlyList<DeviceError> Errors, Device? Device)
+{
+    public static UpdateResult Success(Device device) => new(true, [], device);
+
+    public static UpdateResult Failure(params DeviceError[] errors) => new(false, errors, null);
+}
+
 /// <summary>Outcome of <c>find_devices</c>. <c>Message</c> is set when no device matches: why, and what to do next.</summary>
 public sealed record FindDevicesResult(bool Ok, IReadOnlyList<Device> Devices, string? Message = null, DeviceError? Error = null)
 {
@@ -47,6 +55,7 @@ public static class ErrorCodes
     public const string InvalidFields = "invalid_fields";
     public const string ManualNotAllowed = "manual_not_allowed";
     public const string ManualNotFound = "manual_not_found";
+    public const string ManualUnreadable = "manual_unreadable";
     public const string ManualInUse = "manual_in_use";
     public const string DeviceExists = "device_exists";
     public const string DeviceNotFound = "device_not_found";

@@ -175,6 +175,20 @@ public sealed class FindDevicesTests : IDisposable
         Assert.NotEmpty(devices);
     }
 
+    [Fact]
+    [Trait("Criteria", "UC-05.3")]
+    public async Task The_brand_is_cleaned_like_the_stored_one()
+    {
+        var bsh = await _env.Registrar.RegisterAsync(new Device { Brand = "B.S.H.", Model = "X1" });
+        var hue = await _env.Registrar.RegisterAsync(new Device { Brand = "Philips Hué", Model = "Go" });
+
+        AssertFoundOnly(await Find(new Device { Brand = "B.S.H." }), bsh.Device!);
+        AssertFoundOnly(await Find(new Device { Brand = "Philips Hué" }), hue.Device!);
+        AssertFoundOnly(await Find(new Device { Brand = "philips hue" }), hue.Device!);
+        // Nothing left once cleaned: the brand counts as not given, so every device matches.
+        Assert.Equal(2, (await Find(new Device { Brand = "..." })).Devices.Count);
+    }
+
     // UC-07
 
     [Fact]

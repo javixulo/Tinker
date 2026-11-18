@@ -12,8 +12,33 @@ public static class Messages
     public static string MissingFields(IEnumerable<string> fields) =>
         $"Missing or blank required fields: {string.Join(", ", fields)}. Ask the user for them and call register_device again.";
 
-    public static string InvalidStatus(string status) =>
-        $"Invalid status: '{status}'. It must be one of: {string.Join(", ", DeviceStatus.All)}. Fix it or leave it out and call register_device again.";
+    public const string BrandWithoutValidCharacters =
+        "The brand has no valid characters: only letters, digits, spaces, hyphens and & are kept. Ask the user for the brand and call register_device again.";
+
+    public static string InvalidStatus(string status, string tool = "register_device") =>
+        $"Invalid status: '{status}'. It must be one of: {string.Join(", ", DeviceStatus.All)}. Fix it or leave it out and call {tool} again.";
+
+    public const string NothingToChange = "Nothing to change: give at least one field in changes. Nothing was changed.";
+
+    public const string UpdateMissingDeviceId =
+        "`device_id` is missing: it is the id of the device to edit. Get it with find_devices.";
+
+    public const string DeviceIdInChanges = "`device_id` cannot be changed: remove it from changes. Nothing was changed.";
+
+    public static string CannotEmpty(string field) =>
+        $"`{field}` cannot be emptied: it is required. Give a new value or leave it out. Nothing was changed.";
+
+    public static string InvalidDate(string field) =>
+        $"`{field}` must be a date as YYYY-MM-DD, or empty to clear it. Nothing was changed.";
+
+    public static string UpdateDeviceNotFound(long deviceId) =>
+        $"The device id {deviceId} does not exist. Nothing was changed. Use find_devices to get a valid device_id.";
+
+    public static string UpdateManualInUse(string path) =>
+        $"Manual already belongs to another device: {path}. That device is in the error. Nothing was changed. If the user wants to move it, remove it from that device first.";
+
+    public static string UpdateDeviceExists(string? brand, string? model) =>
+        $"Another device already has this brand and model: {brand} {model}. It is in the error. Nothing was changed. Check with the user whether they mean that device, or choose other values.";
 
     public static string ManualOutside(string path) =>
         $"Manual not allowed: {path} (outside the manuals folder). Use a path relative to the manuals folder.";
@@ -23,6 +48,10 @@ public static class Messages
 
     public static string ManualNotFound(IEnumerable<string> paths) =>
         $"Manual not found: {string.Join(", ", paths)}. Check the path with the user.";
+
+    public static string ManualUnreadable(IEnumerable<(string Path, string? Reason)> manuals, bool update = false) =>
+        $"Manual could not be read: {string.Join(", ", manuals.Select(m => m.Reason is null ? m.Path : $"{m.Path} ({m.Reason})"))}. " +
+        $"These manuals were not saved, and {(update ? "nothing was changed" : "neither was the device")}. Tell the user that the file is damaged, protected by a password or not a PDF, and ask for another copy.";
 
     public static string ManualInUse(string path) =>
         $"Manual already belongs to another device: {path}. That device is in the error. Do not register the manual twice.";
@@ -56,6 +85,9 @@ public static class Messages
 
     public const string NoExtractableText =
         "The manuals of this device have no extractable text (for example, they are scanned), so nothing can be answered from them. Tell the user.";
+
+    public const string NoManuals =
+        "This device has no manuals, so nothing can be answered. Tell the user, who can add manuals with update_device.";
 
     public static string Failed(string operation) =>
         $"{operation} failed because of an internal problem, not because of the request. Nothing was changed. Tell the user instead of retrying. Trace id: {Activity.Current?.TraceId.ToString() ?? "none"}.";

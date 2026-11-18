@@ -1,6 +1,8 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using UglyToad.PdfPig;
+using UglyToad.PdfPig.Core;
+using UglyToad.PdfPig.Exceptions;
 using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
 
 namespace Tinker.Core.Manuals;
@@ -9,22 +11,57 @@ namespace Tinker.Core.Manuals;
 public interface IManualTextExtractor
 {
     /// <summary>One string per page, in order. A page without text gives an empty string.</summary>
+    /// <exception cref="ManualUnreadableException">The file is damaged, protected by a password or not a PDF.</exception>
     Task<IReadOnlyList<string>> ExtractPagesAsync(string fullPath, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// A manual that exists but cannot be used (technical spec, section 7). It is not a failure of the server: the cause is
+/// the file, so the services turn it into a <c>manual_unreadable</c> error.
+/// </summary>
+public sealed class ManualUnreadableException(string reason, Exception? inner = null)
+    : Exception($"The manual cannot be read: {reason}.", inner)
+{
+    public const string Password = "it is protected by a password";
+    public const string NotAPdf = "it is not a PDF";
+    public const string Damaged = "it is damaged";
+
+    public string Reason { get; } = reason;
 }
 
 public sealed class PdfPigTextExtractor : IManualTextExtractor
 {
     public Task<IReadOnlyList<string>> ExtractPagesAsync(string fullPath, CancellationToken cancellationToken = default)
     {
-        using var document = PdfDocument.Open(fullPath);
-        var pages = new List<string>(document.NumberOfPages);
-        foreach (var page in document.GetPages())
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            pages.Add(ContentOrderTextExtractor.GetText(page));
-        }
+            using var document = PdfDocument.Open(fullPath);
+            var pages = new List<string>(document.NumberOfPages);
+            foreach (var page in document.GetPages())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                pages.Add(ContentOrderTextExtractor.GetText(page));
+            }
 
-        return Task.FromResult<IReadOnlyList<string>>(pages);
+            return Task.FromResult<IReadOnlyList<string>>(pages);
+        }
+        catch (PdfDocumentEncryptedException error)
+        {
+            throw new ManualUnreadableException(ManualUnreadableException.Password, error);
+        }
+        catch (PdfDocumentFormatException error)
+        {
+            throw new ManualUnreadableException(HasPdfHeader(fullPath) ? ManualUnreadableException.Damaged : ManualUnreadableException.NotAPdf, error);
+        }
+    }
+
+    /// <summary>A PDF starts with <c>%PDF-</c> (the specification allows some bytes before it, within the first 1024).</summary>
+    private static bool HasPdfHeader(string fullPath)
+    {
+        using var stream = File.OpenRead(fullPath);
+        var buffer = new byte[1024];
+        var read = stream.Read(buffer, 0, buffer.Length);
+        return Encoding.Latin1.GetString(buffer, 0, read).Contains("%PDF-", StringComparison.Ordinal);
     }
 }
 

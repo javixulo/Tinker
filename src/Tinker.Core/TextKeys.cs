@@ -13,8 +13,16 @@ public static class TextKeys
     /// </summary>
     public static string Fold(string? text)
     {
-        var spaced = string.Join(' ', (text ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).ToLowerInvariant();
-        var decomposed = spaced.Normalize(NormalizationForm.FormD);
+        return RemoveAccents(Squash(text).ToLowerInvariant());
+    }
+
+    /// <summary>Trims the text and collapses each run of whitespace to one space.</summary>
+    public static string Squash(string? text) =>
+        string.Join(' ', (text ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    public static string RemoveAccents(string text)
+    {
+        var decomposed = text.Normalize(NormalizationForm.FormD);
         var plain = new StringBuilder(decomposed.Length);
         foreach (var c in decomposed)
         {

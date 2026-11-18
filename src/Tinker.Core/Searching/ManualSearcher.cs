@@ -74,9 +74,16 @@ public sealed partial class ManualSearcher(
         }
 
         var id = deviceId!.Value;
-        if (!await ExistsAsync(id, cancellationToken))
+        var device = (await inventory.ListAllAsync(cancellationToken)).FirstOrDefault(d => d.DeviceId == id);
+        if (device is null)
         {
             return NotFound(id);
+        }
+
+        if (device.Manuals is not { Count: > 0 })
+        {
+            LogNoManuals(id);
+            return SearchResult.Empty(Messages.NoManuals);
         }
 
         var chunks = await index.SearchAsync(id, queryPrefix + query!.Trim(), nResults ?? DefaultResults, cancellationToken);
@@ -111,6 +118,9 @@ public sealed partial class ManualSearcher(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Search manuals: device {DeviceId} has no chunks, its manuals have no extractable text")]
     private partial void LogNoText(long deviceId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Search manuals: device {DeviceId} has no manuals")]
+    private partial void LogNoManuals(long deviceId);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Search manuals rejected [{Code}]: {Message}")]
     private partial void LogRejected(string code, string message);

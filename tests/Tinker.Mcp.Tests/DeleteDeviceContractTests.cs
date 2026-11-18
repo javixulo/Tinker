@@ -73,7 +73,7 @@ public sealed class DeleteDeviceContractTests : IAsyncLifetime
         var content = deleted.StructuredContent!.Value;
         Assert.True(content.GetProperty("ok").GetBoolean());
         Assert.Equal(1, content.GetProperty("device").GetProperty("device_id").GetInt64());
-        Assert.Equal("Dimmer 2", content.GetProperty("device").GetProperty("model").GetString());
+        Assert.Equal("DIMMER 2", content.GetProperty("device").GetProperty("model").GetString());
 
         var listed = await Call("find_devices", new { });
         Assert.Equal(0, listed.StructuredContent!.Value.GetProperty("devices").GetArrayLength());

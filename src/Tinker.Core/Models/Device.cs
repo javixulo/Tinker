@@ -10,13 +10,13 @@ public sealed record Device
 {
     [Description("Assigned by the inventory when the device is registered. Never provide it when registering.")]
     public long? DeviceId { get; init; }
-    [Description("Brand of the device, as the user wrote it. Required to register.")]
+    [Description("Brand of the device. Required to register. It is stored without accents or special characters and with a standard capitalization.")]
     public string? Brand { get; init; }
-    [Description("Model of the device, as the user wrote it. Required to register.")]
+    [Description("Model of the device. Required to register. It is stored in uppercase.")]
     public string? Model { get; init; }
 
     /// <summary>Paths relative to the manuals folder.</summary>
-    [Description("Manuals of the device (at least one to register): each one is a PDF path relative to the manuals folder, e.g. shelly/dimmer_2_guide.pdf. Absolute paths and .. are not allowed.")]
+    [Description("Manuals of the device (optional): each one is a PDF path relative to the manuals folder, e.g. shelly/dimmer_2_guide.pdf. Absolute paths and .. are not allowed.")]
     public IReadOnlyList<string>? Manuals { get; init; }
     [Description("Type of the device, e.g. Dimmer or Washing machine. Optional.")]
     public string? DeviceType { get; init; }
@@ -34,11 +34,13 @@ public sealed record Device
     public DateOnly? WarrantyEndDate { get; init; }
 
     /// <summary>One of <see cref="DeviceStatus.All"/>.</summary>
-    [Description("Status of the device: active, stored, sold or discarded. Optional.")]
+    [Description("Status of the device: active (in use, the default), inactive (at home but not in use) or archived (kept only as a record). Optional.")]
     public string? Status { get; init; }
 }
 
 public static class DeviceStatus
 {
-    public static readonly IReadOnlyList<string> All = ["active", "stored", "sold", "discarded"];
+    public const string Active = "active";
+
+    public static readonly IReadOnlyList<string> All = ["active", "inactive", "archived"];
 }

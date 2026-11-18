@@ -1,6 +1,6 @@
 # Home Manuals MCP — Technical Specification
 
-> Status: **draft v0.5**
+> Status: **draft v0.6**
 > Sibling document: [functional_spec.md](./functional_spec.md)
 >
 > Each section says whether it is **Decided** (agreed with the user) or **Proposed** (a draft to review, section by section). Sections 1 to 4 are decided; 5 to 8 are proposed; open questions are in section 9.
@@ -28,7 +28,7 @@ tests/fixtures/manuals/    Public PDF manuals used by the tests
 docs/                      Functional and technical specs
 ```
 
-**Status.** `Tinker.Core`, `Tinker.Mcp` (web SDK, `WithHttpTransport`, `MapMcp("/mcp")`, `/health`), `Tinker.Core.Tests` and `Tinker.Mcp.Tests` exist, with `register_device` (UC-01 and UC-02), `delete_device` (UC-03 and UC-04), `find_devices` (UC-05 to UC-07) and `search_manuals` (UC-08 and UC-09) implemented: all four tools exist. The placeholder `ping` tool is gone. Configuration is read from the `Tinker` section (`Tinker__DataPath`, `Tinker__ManualsPath`). OpenTelemetry is exported through OTLP only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+**Status.** `Tinker.Core`, `Tinker.Mcp` (web SDK, `WithHttpTransport`, `MapMcp("/mcp")`, `/health`), `Tinker.Core.Tests` and `Tinker.Mcp.Tests` exist, with `register_device` (UC-01 and UC-02), `delete_device` (UC-03 and UC-04), `find_devices` (UC-05 to UC-07) and `search_manuals` (UC-08 and UC-09) implemented: all four tools exist. The changes that `update_device` brought to the existing tools are built (optional manuals, normalized values, new statuses, `manual_unreadable`, brand cleaning in lookups, no-manuals message in `search_manuals`); `update_device` (UC-10 to UC-12) is built too: all five tools exist. The placeholder `ping` tool is gone. Configuration is read from the `Tinker` section (`Tinker__DataPath`, `Tinker__ManualsPath`). OpenTelemetry is exported through OTLP only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
 
 ## 3. Observability
 
@@ -43,7 +43,7 @@ docs/                      Functional and technical specs
 
 - One span per tool call, with the tool name, the outcome (`ok` or the error codes) and the `device_id` when known. Inside it, spans for the inventory access, the manuals index (index, delete, search) and the registration, which also records whether it was committed or rolled back.
 - Spans and logs record identifiers and parameters, never the content of manuals, chunks or embeddings.
-- Log levels: `Information` for a registration or deletion requested and completed; `Warning` for every rejection (with its code and values) and for a lookup that finds nothing; `Error`, with the exception, for every `failed`.
+- Log levels: `Information` for a registration, update or deletion requested and completed; `Warning` for every rejection (with its code and values) and for a lookup that finds nothing; `Error`, with the exception, for every `failed`.
 - The server never returns an exception to the client (section 6), so the full exception and the trace id are in the log, and only the trace id may travel in the message.
 - Whether the query text of `search_manuals` and the values of rejected registrations may be recorded depends on the PII question in section 9.
 
@@ -78,25 +78,26 @@ docs/                      Functional and technical specs
 **Proposed.**
 
 - **Tools are thin.** A tool class only binds the arguments, calls a service and returns its result. No rule lives in a tool class, so the contract and the logic can be tested apart.
-- **Services** (in `Tinker.Core`): `DeviceRegistrar`, `DeviceFinder`, `DeviceRemover` and `ManualSearcher`, one per tool. **Ports** they depend on: `IInventory` (SQLite), `IManualsIndex` (section 7), `IManualTextExtractor` and the `IEmbeddingGenerator<string, Embedding<float>>` abstraction of `Microsoft.Extensions.AI`, so the embedding model can be swapped. `ManualPathResolver` is plain logic, and the only place that builds a manual path from client input (see the confinement point below).
+- **Services** (in `Tinker.Core`): `DeviceRegistrar`, `DeviceFinder`, `DeviceRemover`, `ManualSearcher` and `DeviceUpdater`, one per tool. `DeviceNormalizer` is plain logic, like `ManualPathResolver`: the one place that turns the values of a client into the stored format (section 7), used by `DeviceRegistrar` and `DeviceUpdater`. **Ports** they depend on: `IInventory` (SQLite), `IManualsIndex` (section 7), `IManualTextExtractor` and the `IEmbeddingGenerator<string, Embedding<float>>` abstraction of `Microsoft.Extensions.AI`, so the embedding model can be swapped. `ManualPathResolver` is plain logic, and the only place that builds a manual path from client input (see the confinement point below).
 - **No LLM and no API key in the server.** Everything that needs a model of language stays in the client. The embedding model runs locally, inside the container.
 - **Stateless HTTP.** The tools are plain request and response: they use no sampling, elicitation or subscriptions. So the transport runs in the stateless mode of the SDK (in 2.x, `HttpServerSessionMode.Stateless`, the default): no session id, nothing kept in memory per client, a restart of the container breaks nothing. The MCP endpoint is `/mcp`; `/health` is separate and not an MCP endpoint.
-- **Manuals stay inside the manuals folder.** Every manual path that comes from a client is resolved by one class, `ManualPathResolver`, and nothing else builds such a path, also when a file is read for indexing. It applies the rules of UC-02 in the functional spec (an absolute path, a `..` in the path, or a link that leads outside the folder is not allowed). As built: the text is judged first: a leading `/`, `\\` or `~`, a drive letter (`C:`), a NUL or an encoded sequence (`%` followed by two hex digits) is "outside the folder"; then `..` as a component (splitting on `/` and `\\`) is "`..`"; then every component is walked, following links (including chains and links to a missing target), and the real path must be inside the real manuals folder. The stored path is the **real** one relative to the folder in POSIX form, so a link inside the folder to another file inside it is stored as that file, and `shelly/./a.pdf` and `shelly/a.pdf` are the same manual. The one non-obvious requirement is that links are followed in **every component** of the path, not only in the last one: .NET has no `realpath`, so the class walks the components. The not-allowed answer is the same whether the file exists or not. Known limit: the check and the later read are not atomic, which is acceptable for a single-user home tool, and the read-only mount of section 4 limits the damage.
+- **Manuals stay inside the manuals folder.** Every manual path that comes from a client is resolved by one class, `ManualPathResolver`, and nothing else builds such a path, also when a file is read for indexing. It applies the rules of UC-02 in the functional spec (an absolute path, a `..` in the path, or a link that leads outside the folder is not allowed). As built: the text is judged first: a leading `/`, `\\` or `~`, a drive letter (`C:`), a NUL or an encoded sequence (`%` followed by two hex digits) is "outside the folder"; then `..` as a component (splitting on `/` and `\\`) is "`..`"; then every component is walked, following links (including chains and links to a missing target), and the real path must be inside the real manuals folder. The stored path is the **real** one relative to the folder in POSIX form, so a link inside the folder to another file inside it is stored as that file, and `shelly/./a.pdf` and `shelly/a.pdf` are the same manual. For that reason a list of manuals is reduced to its distinct real paths, keeping the order of the first appearance of each, before anything else is done with it (a manual written twice counts as one). The one non-obvious requirement is that links are followed in **every component** of the path, not only in the last one: .NET has no `realpath`, so the class walks the components. The not-allowed answer is the same whether the file exists or not. Known limit: the check and the later read are not atomic, which is acceptable for a single-user home tool, and the read-only mount of section 4 limits the damage.
 - **No state in the process** besides caches that can be rebuilt. All data is in the data folder.
-- **Concurrency.** Requests arrive concurrently. SQLite runs in WAL mode with a busy timeout, and every write operation (register, delete) is one transaction. The heavy work (reading the PDF, chunking, embedding) happens before the transaction opens, so the write lock is held briefly.
+- **Concurrency.** Requests arrive concurrently. SQLite runs in WAL mode with a busy timeout, and every write operation (register, update, delete) is one transaction. The heavy work (reading the PDF, chunking, embedding) happens before the transaction opens, so the write lock is held briefly.
 
 ## 6. Tool contract
 
 **Proposed.** This is the contract with the clients. Changes to it must be said explicitly (`CLAUDE.md`). The input and output models are in section 2 of the functional spec; this section covers how they travel.
 
-**Tools:** `register_device`, `find_devices`, `search_manuals`, `delete_device` (marked `destructive` in its MCP annotations; it deletes at once, so the client confirms with the user first).
+**Tools:** `register_device`, `find_devices`, `search_manuals`, `delete_device` (marked `destructive` in its MCP annotations; it deletes at once, so the client confirms with the user first) and `update_device` (`idempotent`: the same call twice leaves the same device).
 
 **Serialization.**
 
 - JSON property names are `snake_case` (`device_id`, `device_type`, `purchase_date`, `n_results`), as the clients expect. C# types are records with `PascalCase` properties, and the server's JSON options use `JsonNamingPolicy.SnakeCaseLower`. The SDK default is `camelCase`, so a contract test checks the schemas.
-- Dates are `yyyy-MM-dd` (`DateOnly`). `status` is a lowercase string (`active`, `stored`, `sold`, `discarded`). An absent optional value is `null`.
-- A `device_id` that comes in the `device` of `register_device` is ignored.
-- The SDK uses the C# parameter names as the argument names of a tool, and the naming policy above does not apply to them. So the top-level parameters of `search_manuals` are written in snake_case in `SearchManualsTool` (`device_id`, `query`, `n_results`), with the analyzer rules turned off for that class; the contract test checks the schema.
+- Dates are `yyyy-MM-dd` (`DateOnly`). `status` is a lowercase string (`active`, `inactive`, `archived`). An absent optional value is `null`.
+- A `device_id` that comes in the `device` of `register_device` is ignored. In the `changes` of `update_device` it is an error (`invalid_fields`).
+- **Absent and empty are different in `update_device`.** In `changes`, a field that is absent or `null` is not sent and keeps its value; a text that is empty or has only spaces, or an empty list, empties the field (functional spec, section 2.5). So `changes` is a `DeviceChanges` (dates as text, so an empty one clears them) deserialized without turning empty values into `null`, and `DeviceUpdater` receives "not sent" and "empty" as two different things. In `register_device` and `find_devices` a blank value still counts as not given. A contract test covers each case.
+- The SDK uses the C# parameter names as the argument names of a tool, and the naming policy above does not apply to them. So the top-level parameters of `search_manuals` and `update_device` are written in snake_case in `SearchManualsTool` and `UpdateDeviceTool` (`device_id`, `query`, `n_results`, `changes`), with the analyzer rules turned off for those classes; the contract test checks the schema.
 - Results are typed objects returned as the tool result, as structured content, with the schema generated from the C# types. The exact SDK settings are confirmed in a spike.
 
 **Outcomes are data, not protocol errors.** A rejection, an empty result and `failed` are all a normal tool result with `ok` and the `errors` or `error` of the functional spec. The MCP `isError` flag is not used for them. So the client always reads the same shape.
@@ -111,36 +112,46 @@ docs/                      Functional and technical specs
 
 | Code | Tools | Meaning |
 |---|---|---|
-| `invalid_fields` | register, delete, search | Required or valid input is missing |
-| `manual_not_allowed` | register | A manual path is outside the manuals folder or contains `..` |
-| `manual_not_found` | register | An allowed manual path does not exist |
-| `manual_in_use` | register | A manual already belongs to another device (carries that `device`) |
-| `device_exists` | register | A device with the same brand and model exists (carries that `device`) |
-| `device_not_found` | delete, search | No device matches |
+| `invalid_fields` | register, update, delete, search | Required or valid input is missing |
+| `manual_not_allowed` | register, update | A manual path is outside the manuals folder or contains `..` |
+| `manual_not_found` | register, update | An allowed manual path does not exist (in `update`, only a manual that is new for the device is checked) |
+| `manual_unreadable` | register, update | An allowed manual that exists cannot be read: damaged, protected by a password or not a PDF. It is not saved and the whole call is rejected |
+| `manual_in_use` | register, update | A manual already belongs to another device (carries that `device`) |
+| `device_exists` | register, update | A device with the same brand and model exists (carries that `device`; in `update`, another device) |
+| `device_not_found` | delete, search, update | No device matches |
 | `ambiguous_device` | delete | Several devices match (carries those `devices`) |
 | `failed` | all | An unexpected failure, not caused by the request |
 
-**Errors of one registration.** All the reasons are returned together, in this order: `invalid_fields` (one error for the missing fields, another for an invalid status), `manual_not_allowed` (one per manual), `manual_not_found` (one error listing every missing manual), `device_exists`, `manual_in_use` (one per manual).
+**Errors of one registration.** All the reasons are returned together, in this order: `invalid_fields` (one error for the missing fields, another for an invalid status), `manual_not_allowed` (one per manual), `manual_not_found` (one error listing every missing manual), `manual_unreadable` (one error listing every manual that cannot be read, with its reason), `device_exists`, `manual_in_use` (one per manual).
+
+**Errors of one update.** The same reasons and the same order, with one difference: `device_not_found` comes alone, because the other rules cannot be checked against a device that is not there.
 
 **Messages.** Written in English for the AI: what happened and what to do next. They never give the location of the manuals folder nor say whether a file outside it exists. Templates:
 
 | Code or case | Message |
 |---|---|
-| `invalid_fields` (register) | `Missing or blank required fields: {fields}. Ask the user for them and call register_device again.` or, for a `status` that is not one of the four, `Invalid status: '{status}'. It must be one of: active, stored, sold, discarded. Fix it or leave it out and call register_device again.` |
+| `invalid_fields` (register) | `Missing or blank required fields: {fields}. Ask the user for them and call register_device again.`, for a brand that is empty once normalized, `The brand has no valid characters: only letters, digits, spaces, hyphens and & are kept. Ask the user for the brand and call register_device again.`, or, for a `status` that is not a valid one, `Invalid status: '{status}'. It must be one of: active, inactive, archived. Fix it or leave it out and call register_device again.` |
+| `invalid_fields` (update) | `Nothing to change: give at least one field in changes. Nothing was changed.`, `` `device_id` is missing: it is the id of the device to edit. Get it with find_devices. ``, `` `device_id` cannot be changed: remove it from changes. Nothing was changed. ``, `` `{field}` cannot be emptied: it is required. Give a new value or leave it out. Nothing was changed. `` (also for a brand that is empty once normalized), or the invalid status message above with `update_device`. When several are wrong, one error carries all the messages, as in search |
 | `invalid_fields` (delete) | `No property was given. Give at least one property of the device (for example brand and model) to identify it. Nothing was deleted.` |
 | `invalid_fields` (search) | `` `device_id` is missing: it is the id of the device whose manuals are searched. Get it with find_devices. ``, `` `query` is blank: it must be the text to look for in the manuals. `` or `` `n_results` must be 1 or more: it is the number of excerpts to return. ``. When several arguments are wrong, one error carries all the messages joined by a space, so the client fixes them in one go |
 | `manual_not_allowed` | `Manual not allowed: {path} (outside the manuals folder). Use a path relative to the manuals folder.` or `Manual not allowed: {path} (its path cannot contain ``..``). Use a path relative to the manuals folder.` |
 | `manual_not_found` | `Manual not found: {path}. Check the path with the user.` |
 | `manual_in_use` | `Manual already belongs to another device: {path}. That device is in the error. Do not register the manual twice.` |
 | `device_exists` | `A device with this brand and model already exists: {brand} {model}. It is in the error. Do not register it again.` |
+| `manual_unreadable` | `Manual could not be read: {paths} ({reason}). These manuals were not saved, and neither was the device (in `update_device`: nothing was changed). Tell the user that the file is damaged, protected by a password or not a PDF, and ask for another copy.` The reason is one of `it is protected by a password`, `it is not a PDF`, `it is damaged` or, when the library cannot tell, `it cannot be read`. One error lists every manual, each with its reason |
+| `manual_in_use` (update) | `Manual already belongs to another device: {path}. That device is in the error. Nothing was changed. If the user wants to move it, remove it from that device first.` |
+| `device_exists` (update) | `Another device already has this brand and model: {brand} {model}. It is in the error. Nothing was changed. Check with the user whether they mean that device, or choose other values.` |
+| `device_not_found` (update) | `The device id {id} does not exist. Nothing was changed. Use find_devices to get a valid device_id.` |
 | `device_not_found` (delete) | `No registered device matches the properties ({listed}). Nothing was deleted. Ask the user for other details, or check the registered devices with find_devices.` |
 | `ambiguous_device` | `{n} registered devices match the properties ({listed}). Nothing was deleted. Ask the user which one it is, or give more properties.` |
 | `device_not_found` (search) | `The device id {id} does not exist. Use find_devices to get a valid device_id.` |
 | `failed` | `{operation} failed because of an internal problem, not because of the request. Nothing was changed. Tell the user instead of retrying. Trace id: {trace_id}.` |
 | `find_devices` empty | `No registered device matches ({listed}). Ask the user for other details, or register the device.` or `There are no registered devices. Register one with register_device.` |
-| `search_manuals` empty | `The manuals of this device have no extractable text (for example, they are scanned), so nothing can be answered from them. Tell the user.` |
+| `search_manuals` empty | `The manuals of this device have no extractable text (for example, they are scanned), so nothing can be answered from them. Tell the user.` or, for a device without manuals, `This device has no manuals, so nothing can be answered. Tell the user, who can add manuals with update_device.` |
 
 Outcome of `delete_device`: `ok`, `device` (as it was before being deleted) and `error` (one, not a list). Its `ambiguous_device` error carries the matching `devices`.
+
+Outcome of `update_device`: `ok`, `errors` (a list, as in `register_device`) and `device` (as stored after the edit). `device_exists` and `manual_in_use` carry the other device involved.
 
 `{listed}` is the properties given as `name: value` pairs, with the names of the contract, separated by commas (`brand: Samsung, location: Garage`); a list is given as its items separated by `;`.
 
@@ -165,7 +176,7 @@ CREATE TABLE devices (
   invoice           TEXT,
   purchase_date     TEXT,            -- yyyy-MM-dd
   warranty_end_date TEXT,            -- yyyy-MM-dd
-  status            TEXT CHECK (status IN ('active','stored','sold','discarded')),
+  status            TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive','archived')),
   UNIQUE (brand_key, model_key)
 );
 CREATE TABLE device_manuals (
@@ -180,10 +191,11 @@ CREATE TABLE device_urls (
 
 - **`AUTOINCREMENT`** so a `device_id` is never reused after a deletion. Without it, a client holding an old id from `find_devices` could hit a new, different device.
 - **The database is the guarantee.** The checks in code give clear reasons, but the `UNIQUE` constraints decide: two simultaneous registrations cannot both pass.
-- `brand` and `model` are stored as the client wrote them. `brand_key` and `model_key` are the folded values.
+- **Normalization.** Values are stored normalized by `DeviceNormalizer` (functional spec, section 1), before anything else sees them: trimmed and with each run of spaces collapsed to one; `brand` without accents and without any character that is not a letter, a digit, a space, a hyphen or `&`, then kept as it is if it is entirely in uppercase and otherwise with the first letter of each word in uppercase; `model` in uppercase, keeping hyphens and slashes; `device_type`, `color` and `location` with the first character in uppercase. `manuals`, `invoice` and `urls` are not changed. A brand that is empty once normalized is `invalid_fields`. `brand_key` and `model_key` are the folded values of the **normalized** brand and model. The `UNIQUE` constraint is on the keys, so it does not depend on the format. A lookup applies the brand cleaning of `DeviceNormalizer` (accents and characters outside the allowed ones, not the casing) to the brand it receives before folding it, so `B.S.H.` finds `BSH`; it is done in `DeviceMatcher`, the one place that turns given properties into criteria, so `find_devices` and `delete_device` agree. A brand that is empty after the cleaning counts as not given.
 - **Keys.** `brand_key` and `model_key` are `TextKeys.Fold` of the brand and the model: trimmed, each run of whitespace collapsed to one space, lowercase and without accents (decompose to FormD, drop the non-spacing marks, compose to FormC). Nothing else is ignored (no hyphens). `Fold` is the **only** text comparison of the project, so the duplicate rule of `register_device`, `find_devices` and `delete_device` always agree: `Philips Hué` and `Philips Hue` are one device. SQLite's `COLLATE NOCASE` ignores the case of ASCII letters only and cannot remove accents, which is why the keys are computed in code and stored.
 - **Deletion.** `delete_device` finds its device the same way as `find_devices`: `DeviceMatcher` (in `Finding`) turns the given properties into criteria and is the one place that decides what matches, used by `DeviceFinder` and `DeviceRemover`. Then `IInventory.DeleteAsync(device_id)` deletes the row (manuals and URLs go by cascade) and `IManualsIndex.DeleteByDeviceAsync` deletes its chunks, both in one transaction; if the index fails the device row comes back. If the device disappears between the lookup and the delete (another request got there first), the answer is `device_not_found`. The manual files are never touched.
 - **Lookups.** `find_devices` does not use SQL to compare text. `IInventory.ListAllAsync` returns every device and `DeviceFinder` filters in memory with `TextKeys.Fold`. A home inventory has tens of devices, so reading them all costs nothing; if it ever grows, store a folded key per column (see section 9).
+- **Update.** `DeviceUpdater` loads the device, applies `DeviceNormalizer` to the values sent and compares the manuals given with the current ones: **new** (not in the device), **removed** and **kept**. Only the new manuals are checked (allowed, exists, not used by another device) and read, chunked and embedded, before the transaction opens; the kept ones are neither checked nor read again, so a file that was deleted from the manuals folder does not block other changes. If nothing differs from the stored values, nothing is written. Then, in one transaction: update the row, replace the rows of `device_manuals` and the lists, `IManualsIndex.DeleteByManualAsync(deviceId, manual)` for each removed manual, `AddAsync` for the new chunks, commit. The collision with another device is checked on the keys of the normalized brand and model (the device itself is excluded), and the `UNIQUE` constraints decide races, as in registration. If the device is deleted between the lookup and the write, the answer is `device_not_found`.
 - **Searching.** `ManualSearcher` checks that the device exists, then asks the index. If the index returns nothing it looks the device up once more, so a device deleted in between is `device_not_found` and not "no extractable text".
 - **Races.** If two registrations pass the checks together, the `UNIQUE` constraints decide: the loser is rolled back and gets `device_exists` or `manual_in_use`, as if the check had caught it.
 - **Queries.** They are built from an allowlist of columns, with every value as a parameter. A value from the client is never concatenated into SQL.
@@ -195,6 +207,7 @@ CREATE TABLE device_urls (
 
 - `AddAsync(deviceId, chunks)`: adds the chunks of a device.
 - `DeleteByDeviceAsync(deviceId)`: deletes every chunk of a device.
+- `DeleteByManualAsync(deviceId, manual)`: deletes the chunks of one manual of a device, for `update_device`.
 - `SearchAsync(deviceId, queryText, count)`: the **only** way to read content. It takes a `device_id` and always filters by it, so a search can never return chunks of another device. There is no method that searches without it. The index embeds `queryText` exactly as given and returns the best `count` chunks (`Chunk`: text, `device_id`, manual, page), most relevant first, by cosine similarity; equal scores keep the order of the manual. It has no minimum score. An empty list means the device has no chunks.
 
 A chunk has its text, `device_id`, manual (relative path), page (from 1), the embedding and a deterministic id made of `device_id`, manual path and chunk number (counted over the whole manual, not per page), so a retry never duplicates chunks. 
@@ -228,13 +241,15 @@ Sharing the file couples the two stores, so the coupling is kept as small as pos
 - **Known limits.** A procedure that crosses a page, or that has the text of a diagram between two of its steps (Fibaro, installation of the Switch 2: steps 1 to 3, the wiring diagrams, steps 4 to 7), is split in two chunks, and a client that needs it whole asks for several results. The garbage that the PDF itself has (page numbers glued to headings, letters of another alphabet, labels of diagrams) is not cleaned.
 - Each chunk is embedded locally through `IEmbeddingGenerator`, with the model decided in the next subsection.
 - The index records the name and dimensions of the embedding model that built it. A different configured model is a startup error, because vectors of two models cannot be compared: the index must be rebuilt.
-- A manual with no extractable text (for example a scanned one) registers without error and produces no chunks.
+- A manual with no extractable text (for example a scanned one) registers without error and produces no chunks. A device may also have no manuals at all: it registers with no chunks.
+- **A manual that cannot be read** (damaged, protected by a password, not a PDF) is not the same as one with no text. `IManualTextExtractor` throws a specific exception (`ManualUnreadableException`, with the reason) that the guard does **not** turn into `failed`: the service turns it into a `manual_unreadable` error. Reading is the check, and it is done for every manual that is allowed and exists, together with the other validations, so the client gets every reason at once; the text read is kept for chunking, so the file is not read twice. The call is rejected as a whole, so nothing is saved.
 - Registering reads and embeds every manual synchronously inside the call.
 
 **Consistency between the two stores.**
 
 - **Registration.** The heavy work comes first: read the manuals, chunk them, embed the chunks. Then open the SQLite transaction, insert the device, add the chunks to the index and commit. If anything fails, roll back the transaction and delete the chunks already added for that `device_id`. No device is left half registered.
 - **Deletion.** Open the transaction, delete the device row (the manuals and URLs go by cascade), delete its chunks from the index and commit. If the index fails, roll back: nothing is deleted. If the commit fails after the chunks were deleted, the index is re-derived for that device from its manuals (the index is rebuildable) and the failure is reported.
+- **Update.** The heavy work for the new manuals comes first. Then open the transaction, update the device, delete the chunks of the removed manuals, add the new chunks and commit. If anything fails, roll back: the device and the chunks of the removed manuals are as they were, and the chunks already added for the new manuals are deleted.
 - **With the initial implementation** the index is in the same SQLite file, so both stores are written in one transaction and the compensation steps above are not needed: commit or rollback covers all, and the service deletes the chunks in the same transaction as the device. The steps above are the rule for any implementation that lives elsewhere.
 
 ### Embedding model
@@ -280,7 +295,7 @@ To be decided and written here as they are made.
 - **`Microsoft.Extensions.VectorData`.** Microsoft's abstraction over vector stores (`VectorStore`, typed collections, filters, hybrid search), with connectors for SQLite, Qdrant and Postgres. It would be the way to switch the backend if the question above is reopened: write a second implementation of `IManualsIndex` on top of it. To check before using it: the maturity of the connectors (some may still be preview), the native SQLite dependency that some report as flagged by NuGet, and whether the SQLite connector can share a transaction with the inventory (probably not, since it manages its own connection), which would bring back the compensation rules of section 7.
 - **Embedding model.** Decided: `bge-small-en-v1.5`, English only (section 7, "Embedding model", with the steps to change it). To revisit if manuals in other languages appear.
 - **PDF text extraction.** PdfPig is in use (`ContentOrderTextExtractor`, page by page) and works with the fixtures and with generated PDFs, including one without text. Still to check with real manuals: multi-column pages and quality of the text.
-- **Unreadable or unsupported manuals.** What `register_device` does with a manual that exists but cannot be used: not a PDF, corrupt, or protected by a password. The functional spec has no criterion for it. Today the extraction exception is caught by the guard and the client gets `failed` ("tell the user instead of retrying"), with nothing stored; that is misleading, because the cause is the file and not the server. It needs a use case or criterion there, and probably its own error code.
+- **Unreadable manuals.** Decided: `manual_unreadable` (section 6), the call is rejected as a whole and the manual is not saved. Built in `PdfPigTextExtractor`: `PdfDocumentEncryptedException` is a password, and `PdfDocumentFormatException` is a file that is not a PDF when it has no `%PDF-` header in its first 1024 bytes, or a damaged one otherwise. Any other exception stays `failed`; the reason `it cannot be read` is not produced yet.
 - **Case-insensitive file systems.** On macOS (and Windows) `Shelly/A.pdf` and `shelly/a.pdf` are the same file but would be stored as two manuals. Docker on the NAS is Linux, so it is not a problem there; to decide whether the resolver should canonicalize the case.
 - **Registration time.** Registering reads and embeds every manual inside the call. On the NAS CPU, a long manual may take longer than a client is willing to wait. Options: leave it synchronous and measure, report progress, or register in the background and return before the content is searchable (which would change the functional contract).
 - **Comparing text (case and accents).** Decided: `TextKeys.Fold` everywhere (section 7, "Keys"). Open: whether to store folded keys for the other columns (`device_type`, `color`, `location`) if the inventory ever grows, so lookups can use SQL instead of reading every device.

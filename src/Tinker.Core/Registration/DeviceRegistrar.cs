@@ -8,7 +8,7 @@ using Tinker.Core.Storage;
 namespace Tinker.Core.Registration;
 
 /// <summary>
-/// UC-01 and UC-02: registers a device with its manuals, or rejects the registration as a whole. The heavy work
+/// UC-01 and UC-02: registers a device, with its manuals if it has any, or rejects the registration as a whole. The heavy work
 /// (reading, chunking and embedding the manuals) happens before the transaction opens, so the write lock is held
 /// briefly. The inventory and the manuals index are written in one transaction: a registration is all or nothing.
 /// </summary>
@@ -58,12 +58,12 @@ public sealed partial class DeviceRegistrar(
         request ??= new Device();
         var errors = new List<DeviceError>();
 
-        var brand = request.Brand?.Trim();
-        var model = request.Model?.Trim();
+        var brand = DeviceNormalizer.Brand(request.Brand);
+        var model = DeviceNormalizer.Model(request.Model);
         var requested = (request.Manuals ?? []).Where(m => !TextKeys.IsBlank(m)).Select(m => m.Trim()).ToList();
 
         var missing = new List<string>();
-        if (TextKeys.IsBlank(brand))
+        if (TextKeys.IsBlank(request.Brand))
         {
             missing.Add("brand");
         }
@@ -73,14 +73,14 @@ public sealed partial class DeviceRegistrar(
             missing.Add("model");
         }
 
-        if (requested.Count == 0)
-        {
-            missing.Add("manuals");
-        }
-
         if (missing.Count > 0)
         {
             errors.Add(new DeviceError(ErrorCodes.InvalidFields, Messages.MissingFields(missing)));
+        }
+
+        if (!TextKeys.IsBlank(request.Brand) && brand.Length == 0)
+        {
+            errors.Add(new DeviceError(ErrorCodes.InvalidFields, Messages.BrandWithoutValidCharacters));
         }
 
         if (!TextKeys.IsBlank(request.Status) && !DeviceStatus.All.Contains(request.Status!.Trim()))
@@ -121,8 +121,28 @@ public sealed partial class DeviceRegistrar(
             errors.Add(new DeviceError(ErrorCodes.ManualNotFound, Messages.ManualNotFound(notFound)));
         }
 
-        if (!TextKeys.IsBlank(brand) && !TextKeys.IsBlank(model)
-            && await inventory.FindByBrandAndModelAsync(brand!, model!, cancellationToken) is { } existing)
+        // Reading is the check: a manual that exists but cannot be used is reported with the other reasons.
+        var texts = new List<(ManualPathResult Manual, IReadOnlyList<string> Pages)>();
+        var unreadable = new List<(string Path, string? Reason)>();
+        foreach (var manual in manuals)
+        {
+            try
+            {
+                texts.Add((manual, await extractor.ExtractPagesAsync(manual.FullPath!, cancellationToken)));
+            }
+            catch (ManualUnreadableException error)
+            {
+                unreadable.Add((manual.RelativePath!, error.Reason));
+            }
+        }
+
+        if (unreadable.Count > 0)
+        {
+            errors.Add(new DeviceError(ErrorCodes.ManualUnreadable, Messages.ManualUnreadable(unreadable)));
+        }
+
+        if (brand.Length > 0 && model.Length > 0
+            && await inventory.FindByBrandAndModelAsync(brand, model, cancellationToken) is { } existing)
         {
             errors.Add(new DeviceError(ErrorCodes.DeviceExists, Messages.DeviceExists(existing.Brand, existing.Model), existing));
         }
@@ -140,7 +160,7 @@ public sealed partial class DeviceRegistrar(
             return Reject(errors, activity);
         }
 
-        var chunks = await BuildChunksAsync(manuals, cancellationToken);
+        var chunks = await ManualChunks.BuildAsync(texts.Select(t => (t.Manual.RelativePath!, t.Pages)), embeddings, LogNoText, cancellationToken);
         var device = request with
         {
             DeviceId = null,
@@ -148,11 +168,11 @@ public sealed partial class DeviceRegistrar(
             Model = model,
             Manuals = manuals.Select(m => m.RelativePath!).ToList(),
             Urls = (request.Urls ?? []).Where(u => !TextKeys.IsBlank(u)).Select(u => u.Trim()).Distinct().ToList(),
-            DeviceType = NullIfBlank(request.DeviceType),
-            Color = NullIfBlank(request.Color),
-            Location = NullIfBlank(request.Location),
+            DeviceType = NormalizedOrNull(request.DeviceType, DeviceNormalizer.FirstUpper),
+            Color = NormalizedOrNull(request.Color, DeviceNormalizer.FirstUpper),
+            Location = NormalizedOrNull(request.Location, DeviceNormalizer.FirstUpper),
             Invoice = NullIfBlank(request.Invoice),
-            Status = NullIfBlank(request.Status),
+            Status = NullIfBlank(request.Status) ?? DeviceStatus.Active,
         };
 
         try
@@ -199,41 +219,6 @@ public sealed partial class DeviceRegistrar(
         return errors.Count > 0 ? errors : throw conflict;
     }
 
-    /// <summary>Reads, chunks and embeds every manual. Nothing is written yet.</summary>
-    private async Task<List<IndexedChunk>> BuildChunksAsync(List<ManualPathResult> manuals, CancellationToken cancellationToken)
-    {
-        var chunks = new List<IndexedChunk>();
-        foreach (var manual in manuals)
-        {
-            var texts = new List<(int Page, string Text)>();
-            var pages = await extractor.ExtractPagesAsync(manual.FullPath!, cancellationToken);
-            for (var page = 1; page <= pages.Count; page++)
-            {
-                // Chunks never cross a page.
-                texts.AddRange(TextChunker.Split(pages[page - 1]).Select(text => (page, text)));
-            }
-
-            if (texts.Count == 0)
-            {
-                LogNoText(manual.RelativePath);
-                continue;
-            }
-
-            var vectors = await embeddings.GenerateAsync(texts.Select(t => t.Text), cancellationToken: cancellationToken);
-            if (vectors.Count != texts.Count)
-            {
-                throw new InvalidOperationException($"The embedding generator returned {vectors.Count} vectors for {texts.Count} chunks.");
-            }
-
-            for (var i = 0; i < texts.Count; i++)
-            {
-                chunks.Add(new IndexedChunk(manual.RelativePath!, texts[i].Page, i, texts[i].Text, vectors[i].Vector.ToArray()));
-            }
-        }
-
-        return chunks;
-    }
-
     private RegistrationResult Reject(List<DeviceError> errors, Activity? activity)
     {
         foreach (var error in errors)
@@ -246,6 +231,8 @@ public sealed partial class DeviceRegistrar(
     }
 
     private static string? NullIfBlank(string? text) => TextKeys.IsBlank(text) ? null : text!.Trim();
+
+    private static string? NormalizedOrNull(string? text, Func<string?, string> normalize) => TextKeys.IsBlank(text) ? null : normalize(text);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Registration requested: {Brand} {Model}")]
     private partial void LogRequested(string? brand, string? model);

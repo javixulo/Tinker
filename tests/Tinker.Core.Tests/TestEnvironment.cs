@@ -9,6 +9,7 @@ using Tinker.Core.Searching;
 using Tinker.Core.Registration;
 using Tinker.Core.Removal;
 using Tinker.Core.Storage;
+using Tinker.Core.Updating;
 using UglyToad.PdfPig.Core;
 using UglyToad.PdfPig.Writer;
 
@@ -57,9 +58,19 @@ public sealed class TestEnvironment : IDisposable
             extractor ?? new PdfPigTextExtractor(),
             generator,
             LoggerFactory.Create(b => b.AddProvider(Logs)).CreateLogger<DeviceRegistrar>());
+        Updater = new DeviceUpdater(
+            new ManualPathResolver(ManualsPath),
+            inventory,
+            wrappedIndex,
+            Database,
+            extractor ?? new PdfPigTextExtractor(),
+            generator,
+            LoggerFactory.Create(b => b.AddProvider(Logs)).CreateLogger<DeviceUpdater>());
     }
 
     public DeviceRegistrar Registrar { get; }
+
+    public DeviceUpdater Updater { get; }
 
     public DeviceFinder Finder { get; }
 
@@ -187,6 +198,8 @@ public sealed class ThrowingIndex(IManualsIndex inner) : IManualsIndex
 
     public Task DeleteByDeviceAsync(long deviceId, CancellationToken cancellationToken = default) => inner.DeleteByDeviceAsync(deviceId, cancellationToken);
 
+    public Task DeleteByManualAsync(long deviceId, string manual, CancellationToken cancellationToken = default) => inner.DeleteByManualAsync(deviceId, manual, cancellationToken);
+
     public Task<IReadOnlyList<Chunk>> SearchAsync(long deviceId, string queryText, int count, CancellationToken cancellationToken = default) =>
         inner.SearchAsync(deviceId, queryText, count, cancellationToken);
 }
@@ -213,6 +226,12 @@ public sealed class RacyInventory(IInventory inner) : IInventory
         return await inner.InsertAsync(device, cancellationToken);
     }
 
+    public Task<Device?> UpdateAsync(Device device, CancellationToken cancellationToken = default)
+    {
+        Blind = false;
+        return inner.UpdateAsync(device, cancellationToken);
+    }
+
     public Task<bool> DeleteAsync(long deviceId, CancellationToken cancellationToken = default) => inner.DeleteAsync(deviceId, cancellationToken);
 }
 
@@ -236,6 +255,8 @@ public sealed class UnreadableInventory(IInventory inner) : IInventory
 
     public Task<Device> InsertAsync(Device device, CancellationToken cancellationToken = default) => inner.InsertAsync(device, cancellationToken);
 
+    public Task<Device?> UpdateAsync(Device device, CancellationToken cancellationToken = default) => inner.UpdateAsync(device, cancellationToken);
+
     public Task<bool> DeleteAsync(long deviceId, CancellationToken cancellationToken = default) => inner.DeleteAsync(deviceId, cancellationToken);
 }
 
@@ -250,6 +271,8 @@ public sealed class ThrowingDeleteIndex(IManualsIndex inner) : IManualsIndex
         throw new InvalidOperationException("The index broke while deleting.");
     }
 
+    public Task DeleteByManualAsync(long deviceId, string manual, CancellationToken cancellationToken = default) => inner.DeleteByManualAsync(deviceId, manual, cancellationToken);
+
     public Task<IReadOnlyList<Chunk>> SearchAsync(long deviceId, string queryText, int count, CancellationToken cancellationToken = default) =>
         inner.SearchAsync(deviceId, queryText, count, cancellationToken);
 }
@@ -262,6 +285,8 @@ public sealed class SearchSpyIndex(IManualsIndex inner, bool fail = false) : IMa
     public Task AddAsync(long deviceId, IReadOnlyList<IndexedChunk> chunks, CancellationToken cancellationToken = default) => inner.AddAsync(deviceId, chunks, cancellationToken);
 
     public Task DeleteByDeviceAsync(long deviceId, CancellationToken cancellationToken = default) => inner.DeleteByDeviceAsync(deviceId, cancellationToken);
+
+    public Task DeleteByManualAsync(long deviceId, string manual, CancellationToken cancellationToken = default) => inner.DeleteByManualAsync(deviceId, manual, cancellationToken);
 
     public Task<IReadOnlyList<Chunk>> SearchAsync(long deviceId, string queryText, int count, CancellationToken cancellationToken = default)
     {

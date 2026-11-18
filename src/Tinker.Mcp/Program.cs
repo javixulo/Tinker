@@ -17,6 +17,7 @@ using Tinker.Core.Storage;
 using Tinker.Mcp;
 using Tinker.Mcp.Startup;
 using Tinker.Core.Searching;
+using Tinker.Core.Updating;
 using Tinker.Mcp.Tools;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -54,6 +55,7 @@ builder.Services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>>(sp 
 builder.Services.AddSingleton<DeviceRegistrar>();
 builder.Services.AddSingleton<DeviceFinder>();
 builder.Services.AddSingleton<DeviceRemover>();
+builder.Services.AddSingleton<DeviceUpdater>();
 builder.Services.AddSingleton(sp => new ManualSearcher(
     sp.GetRequiredService<IInventory>(),
     sp.GetRequiredService<IManualsIndex>(),
@@ -75,7 +77,8 @@ builder.Services
     .WithTools<RegisterDeviceTool>(json)
     .WithTools<FindDevicesTool>(json)
     .WithTools<DeleteDeviceTool>(json)
-    .WithTools<SearchManualsTool>(json);
+    .WithTools<SearchManualsTool>(json)
+    .WithTools<UpdateDeviceTool>(json);
 
 var app = builder.Build();
 

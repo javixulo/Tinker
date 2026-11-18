@@ -18,7 +18,7 @@ public static class DeviceMatcher
             given.Add(new("device_id", id.ToString(CultureInfo.InvariantCulture), x => x.DeviceId == id));
         }
 
-        AddText(given, "brand", d.Brand, x => x.Brand);
+        AddBrand(given, d.Brand);
         AddText(given, "model", d.Model, x => x.Model);
         AddText(given, "device_type", d.DeviceType, x => x.DeviceType);
         AddText(given, "color", d.Color, x => x.Color);
@@ -30,6 +30,17 @@ public static class DeviceMatcher
         AddDate(given, "purchase_date", d.PurchaseDate, x => x.PurchaseDate);
         AddDate(given, "warranty_end_date", d.WarrantyEndDate, x => x.WarrantyEndDate);
         return given;
+    }
+
+    /// <summary>The brand is cleaned as it is when stored (so <c>B.S.H.</c> finds <c>BSH</c>); with nothing left it counts as not given.</summary>
+    private static void AddBrand(List<Criterion> given, string? brand)
+    {
+        var clean = DeviceNormalizer.CleanBrand(brand);
+        if (clean.Length > 0)
+        {
+            var wanted = TextKeys.Fold(clean);
+            given.Add(new("brand", clean, x => x.Brand is { } text && TextKeys.Fold(text) == wanted));
+        }
     }
 
     private static void AddText(List<Criterion> given, string name, string? value, Func<Device, string?> own)

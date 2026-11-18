@@ -119,8 +119,7 @@ public sealed class RejectRegistrationTests : IDisposable
     [Trait("Criteria", "UC-02.4")]
     [InlineData("", "Model", true, "brand")]
     [InlineData("Brand", "   ", true, "model")]
-    [InlineData("Brand", "Model", false, "manuals")]
-    [InlineData(null, null, false, "brand, model, manuals")]
+    [InlineData(null, null, false, "brand, model")]
     public async Task Rejects_missing_required_fields_and_lists_them(string? brand, string? model, bool withManual, string expected)
     {
         var manuals = withManual ? new[] { _env.Pdf("a.pdf", "Alpha.") } : [];
@@ -134,11 +133,32 @@ public sealed class RejectRegistrationTests : IDisposable
 
     [Fact]
     [Trait("Criteria", "UC-02.4")]
-    public async Task A_manual_made_only_of_spaces_counts_as_not_provided()
+    public async Task A_brand_with_no_valid_character_left_is_rejected()
     {
-        var result = await Rejected(() => _env.Register("Brand", "Model", "  "));
+        var result = await Rejected(() => _env.Registrar.RegisterAsync(new Device { Brand = "...", Model = "M" }));
 
-        Assert.Contains("manuals", Assert.Single(result.Errors).Message, StringComparison.Ordinal);
+        var error = Assert.Single(result.Errors);
+        Assert.Equal("invalid_fields", error.Code);
+        Assert.Contains("no valid characters", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Criteria", "UC-02.12")]
+    public async Task Manuals_that_cannot_be_read_are_listed_with_their_reason_and_nothing_is_saved()
+    {
+        var readable = _env.Pdf("ok.pdf", "Alpha.");
+        File.WriteAllText(Path.Combine(_env.ManualsPath, "notes.txt"), "just text");
+        File.WriteAllText(Path.Combine(_env.ManualsPath, "broken.pdf"), "%PDF-1.4\nthis is not a real body");
+
+        var result = await Rejected(() => _env.Register("Acme", "Box", readable, "notes.txt", "broken.pdf"));
+
+        var error = Assert.Single(result.Errors);
+        Assert.Equal("manual_unreadable", error.Code);
+        Assert.Contains("notes.txt (it is not a PDF)", error.Message, StringComparison.Ordinal);
+        Assert.Contains("broken.pdf (it is damaged)", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("ok.pdf", error.Message, StringComparison.Ordinal);
+        Assert.Contains("neither was the device", error.Message, StringComparison.Ordinal);
+        Assert.Equal(0, _env.CountChunks());
     }
 
     [Fact]
@@ -160,7 +180,7 @@ public sealed class RejectRegistrationTests : IDisposable
 
         var error = Assert.Single(result.Errors);
         Assert.Equal("invalid_fields", error.Code);
-        Assert.Contains("active, stored, sold, discarded", error.Message, StringComparison.Ordinal);
+        Assert.Contains("active, inactive, archived", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -354,19 +374,6 @@ public sealed class RejectRegistrationTests : IDisposable
 
         AssertFailed(result);
         Assert.Equal(before, env.Snapshot());
-    }
-
-    [Fact]
-    [Trait("Criteria", "UC-02.11")]
-    public async Task A_file_that_is_not_a_pdf_fails_without_raw_exception_in_the_message()
-    {
-        File.WriteAllText(Path.Combine(_env.ManualsPath, "notes.txt"), "just text");
-
-        var result = await _env.Register("Acme", "Box", "notes.txt");
-
-        var error = AssertFailed(result);
-        Assert.DoesNotContain("PdfPig", error.Message, StringComparison.Ordinal);
-        Assert.Equal(0, _env.CountDevices());
     }
 
     [Fact]

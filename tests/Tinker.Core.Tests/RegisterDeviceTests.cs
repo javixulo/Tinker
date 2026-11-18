@@ -13,6 +13,77 @@ public sealed class RegisterDeviceTests : IDisposable
 
     [Fact]
     [Trait("Criteria", "UC-01.1")]
+    public async Task Registers_with_brand_and_model_only()
+    {
+        var result = await _env.Registrar.RegisterAsync(new Device { Brand = "Shelly", Model = "Dimmer 2" });
+
+        Assert.True(result.Ok);
+        var device = result.Device!;
+        Assert.Empty(device.Manuals!);
+        Assert.Equal("active", device.Status);
+        Assert.Equal(0, _env.CountChunks());
+        var stored = await _env.Inventory.FindByBrandAndModelAsync("Shelly", "Dimmer 2");
+        Assert.Equal(TestEnvironment.Json(device), TestEnvironment.Json(stored!));
+    }
+
+    [Fact]
+    [Trait("Criteria", "UC-01.8")]
+    public async Task Values_are_normalized()
+    {
+        var manual = _env.Fixture("shelly/dimmer_2_guide.pdf");
+
+        var result = await _env.Registrar.RegisterAsync(new Device
+        {
+            Brand = "philips hué",
+            Model = "qe55q60-a/b",
+            Location = "salón",
+            Color = "  light   grey ",
+            Invoice = " inv-1 ",
+            Manuals = [manual],
+        });
+
+        var device = result.Device!;
+        Assert.Equal("Philips Hue", device.Brand);
+        Assert.Equal("QE55Q60-A/B", device.Model);
+        Assert.Equal("Salón", device.Location);
+        Assert.Equal("Light grey", device.Color);
+        Assert.Equal([manual], device.Manuals);
+    }
+
+    [Theory]
+    [Trait("Criteria", "UC-01.8")]
+    [InlineData("LG", "LG")]
+    [InlineData("philips hué", "Philips Hue")]
+    [InlineData("bang & olufsen", "Bang & Olufsen")]
+    [InlineData("B.S.H.", "BSH")]
+    [InlineData("  SAMSUNG   electronics ", "Samsung Electronics")]
+    public void Brand_normalization(string given, string expected) => Assert.Equal(expected, DeviceNormalizer.Brand(given));
+
+    [Fact]
+    [Trait("Criteria", "UC-01.9")]
+    public async Task Status_defaults_to_active()
+    {
+        var archived = await _env.Registrar.RegisterAsync(new Device { Brand = "A", Model = "1", Status = "archived" });
+        var plain = await _env.Registrar.RegisterAsync(new Device { Brand = "A", Model = "2" });
+
+        Assert.Equal("archived", archived.Device!.Status);
+        Assert.Equal("active", plain.Device!.Status);
+    }
+
+    [Fact]
+    [Trait("Criteria", "UC-01.10")]
+    public async Task A_manual_repeated_is_stored_and_indexed_once()
+    {
+        var manual = _env.Pdf("shelly/a.pdf", "Alpha.");
+
+        var result = await _env.Register("Acme", "Box", manual, "shelly/./a.pdf");
+
+        Assert.Equal(["shelly/a.pdf"], result.Device!.Manuals);
+        Assert.Equal(1, _env.CountChunks());
+    }
+
+    [Fact]
+    [Trait("Criteria", "UC-01.1")]
     public async Task Registers_with_the_required_fields()
     {
         var manual = _env.Fixture("shelly/dimmer_2_guide.pdf");
@@ -24,7 +95,7 @@ public sealed class RegisterDeviceTests : IDisposable
         var device = result.Device!;
         Assert.Equal(1, device.DeviceId);
         Assert.Equal("Shelly", device.Brand);
-        Assert.Equal("Dimmer 2", device.Model);
+        Assert.Equal("DIMMER 2", device.Model);
         Assert.Equal([manual], device.Manuals);
         Assert.Equal(1, _env.CountDevices());
         var stored = await _env.Inventory.FindByBrandAndModelAsync("Shelly", "Dimmer 2");

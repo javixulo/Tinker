@@ -10,7 +10,7 @@ CREATE TABLE devices (
   invoice           TEXT,
   purchase_date     TEXT,
   warranty_end_date TEXT,
-  status            TEXT CHECK (status IN ('active','stored','sold','discarded')),
+  status            TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','inactive','archived')),
   UNIQUE (brand_key, model_key)
 );
 
