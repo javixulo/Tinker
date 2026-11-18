@@ -284,12 +284,36 @@ If the manuals become mixed (some English, some Spanish), a multilingual model i
   - **Model** (`Tinker.ModelTests`): integration with the real embedding model (`BgeEmbeddingGeneratorTests`, `SearchManualsRealModelTests`). It links `TestEnvironment.cs` from the integration tests instead of copying it, and is skipped when the model files are not in `models/bge-small-en-v1.5` (or `TINKER_TEST_MODEL_PATH`).
   - **Contract** (`Tinker.ContractTests`): see below.
   - **System and smoke** (not built yet): the Docker image running, spoken to as a client would, with the real model. The smoke subset (the container starts, `/health` answers, the five tools are listed) is to run before the image is published.
-- **CI** (`.github/workflows/ci.yml`) builds once and runs the four projects as parallel jobs from the build artifact (no restore or checkout); the model job downloads the pinned model (same revision and SHA-256 as the Dockerfile, cached). `dotnet test` runs all of them locally.
+- **CI** runs the four projects on every push to `main` and every pull request; see "Continuous integration" below.
 - **Contract tests** (`Tinker.ContractTests`) start the real server in process and talk to it with the SDK's MCP client over HTTP. They check: the tools exposed and their names, the schemas (`snake_case`), that every outcome is a normal result and not `isError`, that no raw exception ever travels, and that the trace context is propagated.
 - **Confinement tests** use a temporary folder with real links, including a link in an intermediate directory and a link whose target does not exist.
 - **Startup validation tests:** a data folder that is not writable, a missing manuals folder, a database with a newer schema, an index built with another model.
 - **Fixtures:** the public PDFs of `tests/fixtures/manuals/`, plus small generated PDFs for the edge cases (no text, several pages).
 - **Framework:** xUnit v3 on Microsoft.Testing.Platform (`global.json` selects the runner, so `dotnet test` works on the .NET 10 SDK). Analyzer rules about test names and inline arrays are relaxed in `tests/Directory.Build.props`.
+
+### Continuous integration
+
+**Built.** `.github/workflows/ci.yml`, on GitHub Actions (`ubuntu-latest`). It runs on every push to `main` and on every pull request, with read-only permissions (`contents: read`). It builds and tests; it does not publish anything yet.
+
+```
+build ─┬─ unit-tests
+       ├─ integration-tests
+       ├─ contract-tests
+       └─ model-tests
+```
+
+- **`build`** compiles the solution once in Release and uploads the test executables as an artifact.
+- **The four test jobs** need `build` and run in parallel, each one a test project (section 8, "Levels"). A failure in one does not hide the result of the others.
+
+**Decisions behind it.**
+
+- **The test jobs run the executables from the artifact; they do not run `dotnet test`.** An xUnit v3 project is an executable and its `bin/Release` holds everything it needs (the tests, the code under test, its dependencies, the fixtures). So the jobs do not check out the repository, restore NuGet packages or compile. Using `dotnet test --no-build` on a fresh machine was tried first and finds no test projects, because the test framework packages are not there.
+- **The artifact is a `tar.gz`**, not the folders, because `upload-artifact` drops the executable bit of the test binaries.
+- **Only the `linux-x64` native libraries are kept.** ONNX Runtime and SQLite ship their libraries for every platform (about 300 MB per test project); the jobs run on `linux-x64`, so `build` deletes the rest before packing. The artifact goes from about 600 MB to about 60 MB. It lives one day.
+- **`contract-tests` is the only job that checks out**, and only `src/Tinker.Mcp` (sparse checkout): `WebApplicationFactory` resolves the content root of the server project from the source tree.
+- **`model-tests` downloads the embedding model** from the same pinned Hugging Face revision as the `Dockerfile`, checks its SHA-256 and caches it (`actions/cache`, keyed by the revision), then points the tests to it with `TINKER_TEST_MODEL_PATH`. So CI tests the model the image ships, and a changed file fails the job. When the revision changes in the `Dockerfile`, change it in the workflow too.
+
+**Not built yet.** The pipeline that follows the tests: build the Docker image, run the smoke test and the system tests against it (section 8), and publish it to GitHub Container Registry (`ghcr.io`) when a `v*` tag is pushed, with the version and `latest` as tags and for `linux/amd64` and `linux/arm64`. The system tests are slow, so they would run on `main` and tags, not on every pull request. The smoke test goes just before publishing `latest`.
 
 ## 9. Open questions
 

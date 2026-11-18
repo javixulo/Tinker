@@ -152,6 +152,12 @@ Every acceptance criterion of the functional spec is covered by at least one aut
 
 Run one level with `dotnet test --project tests/Tinker.UnitTests` (or the name of another project).
 
+### Continuous integration
+
+[![CI](https://github.com/javixulo/Tinker/actions/workflows/ci.yml/badge.svg)](https://github.com/javixulo/Tinker/actions/workflows/ci.yml)
+
+GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) builds the solution once on every push to `main` and every pull request, then runs the four test projects in parallel. The model tests download the same pinned embedding model that the Docker image ships. Publishing the Docker image is not automated yet. More detail in [`docs/technical_spec.md`](docs/technical_spec.md), section 8.
+
 ## Architecture
 
 ```
