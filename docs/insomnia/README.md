@@ -12,21 +12,21 @@
 
 | Request | Expected |
 |---|---|
-| UC-01 · 1 and 2 | `ok: true` (devices 1 and 2) |
-| UC-02 · 1, 2 and 4c | `ok: false`; they reuse a manual that UC-01 already registered, so `manual_in_use` comes together with `device_exists` / `invalid_fields` |
-| UC-02 · the rest | `ok: false`, with the error code its name says |
+| UC-01 · 1 and 2 | success (devices 1 and 2) |
+| UC-02 · 1, 2 and 4c | tool error (`isError`); they reuse a manual that UC-01 already registered, so `manual_in_use` comes together with `device_exists` / `invalid_fields` |
+| UC-02 · the rest | tool error (`isError`), with the error code its name says |
 | UC-02 · 10 | five errors at once |
-| UC-05 · 1 and 2 | `ok: true` with Fibaro Double Smart only |
+| UC-05 · 1 and 2 | success with Fibaro Double Smart only |
 | UC-06 · 1, 2 and 3 | both devices; only Shelly Dimmer 2; both devices |
-| UC-07 · 1 and 2 | `ok: true`, empty list and a `message` |
-| UC-07 · 3 | only from an empty database: `ok: true`, empty list, "no registered devices". Run it before the registrations |
-| UC-08 · 1 | `ok: true`, up to 3 chunks of device 1 (`shelly/dimmer_2_guide.pdf`), most relevant first, each with `text`, `device_id`, `manual` and `page`; `message` is empty |
-| UC-08 · 2 | `ok: true`, 3 chunks that all have `device_id: 2` (`fibaro/fgs_2x3_en_manual.pdf`), although the query is about a dimmer |
+| UC-07 · 1 and 2 | success, empty list and a `message` |
+| UC-07 · 3 | only from an empty database: success, empty list, "no registered devices". Run it before the registrations |
+| UC-08 · 1 | success, up to 3 chunks of device 1 (`shelly/dimmer_2_guide.pdf`), most relevant first, each with `text`, `device_id`, `manual` and `page`; `message` is empty |
+| UC-08 · 2 | success, 3 chunks that all have `device_id: 2` (`fibaro/fgs_2x3_en_manual.pdf`), although the query is about a dimmer |
 | UC-08 · 3 and 3b | exactly 1 chunk; at most 5 chunks (the default) |
-| UC-09 · 1 | `ok: false`, `device_not_found` (device 999) |
-| UC-09 · 2, 2b and 2c | `ok: false`, `invalid_fields`: blank query; `n_results` 0; and all three arguments wrong at once (one error, three messages) |
-| UC-04 · 1, 2 and 3 | `ok: false`: `invalid_fields`, `device_not_found`, `ambiguous_device` (both devices in the error). Nothing is deleted |
-| UC-03 · 1, 1b and 2 | `ok: true`: deletes Fibaro Double Smart; 1b registers Shelly RGBW2 again (setup, device 3); deletes it by type and brand |
+| UC-09 · 1 | tool error (`isError`), `device_not_found` (device 999) |
+| UC-09 · 2, 2b and 2c | tool error (`isError`), `invalid_fields`: blank query; `n_results` 0; and all three arguments wrong at once (one error, three messages) |
+| UC-04 · 1, 2 and 3 | tool error (`isError`): `invalid_fields`, `device_not_found`, `ambiguous_device` (both devices in the error). Nothing is deleted |
+| UC-03 · 1, 1b and 2 | success: deletes Fibaro Double Smart; 1b registers Shelly RGBW2 again (setup, device 3); deletes it by type and brand |
 
 **UC-04 and UC-03 go last, and UC-04 first.** UC-03 deletes the devices the other requests use, and UC-04 needs both of them. UC-04 · 4 (failure while deleting) cannot be provoked through the API; the logic tests cover it. The same goes for UC-09 · 3 (manuals without text: needs a scanned PDF, which the sample folder does not have) and UC-09 · 4 (unexpected failure). UC-08 and UC-09 only read, so they can be run any number of times, but they need devices 1 and 2 from UC-01, so they go before UC-03.
 

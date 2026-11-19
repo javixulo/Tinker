@@ -26,7 +26,7 @@
 | `inactive` | At home, but not in use now (e.g. broken or waiting for a repair) |
 | `archived` | No longer relevant day to day. Kept in the inventory only as a record (manuals, invoice, warranty) |
 
-The status is informational: any change from one status to another is allowed, and the MCP enforces no workflow. A device always has a status, so it cannot be emptied. The status says nothing about the location: a device of any status may or may not have one.
+The status is informational: any change from one status to another is allowed, and the MCP enforces no workflow, because nothing in the use of the inventory needs one yet. Revisit it if real use needs more statuses (for example sold or discarded) or rules (for example an `archived` device that `find_devices` leaves out by default). A device always has a status, so it cannot be emptied. The status says nothing about the location: a device of any status may or may not have one.
 
 ### Normalization of stored values
 
@@ -38,7 +38,7 @@ Text is normalized when it is written (`register_device` and `update_device`), s
 | `model` | All uppercase. Characters such as hyphens or slashes are kept, because models are often written with them | `qe55q60-a/b` → `QE55Q60-A/B` |
 | `device_type`, `color`, `location` | First character in uppercase, the rest as given | `lavadora` → `Lavadora` |
 | `manuals` | Not changed: they must match the name of the file and its path | |
-| `invoice`, `urls` | Not changed | |
+| `invoice`, `urls` | Not changed, because an invoice may be a path or a reference where the case matters | |
 
 The comparison used to find devices and to detect duplicates ignores case, accents and spaces (`TextKeys.Fold`), so it does not depend on this format. For the brand, a lookup (`find_devices`, `delete_device`) also removes from the brand given the characters that are removed when it is stored. The tools return the values as stored.
 
@@ -104,11 +104,10 @@ Each tool has its own section with its use cases and acceptance criteria. The ca
 
 | Field | Type | Notes |
 |---|---|---|
-| `ok` | boolean | `true` when the device was registered |
-| `errors` | list of Error | Empty when `ok` is `true`. Codes: `invalid_fields`, `manual_not_allowed`, `manual_not_found`, `manual_unreadable`, `device_exists`, `manual_in_use`, `failed`. `device_exists` and `manual_in_use` carry the `device` already registered |
+| `errors` | list of Error | Empty when the call worked. Codes: `invalid_fields`, `manual_not_allowed`, `manual_not_found`, `manual_unreadable`, `device_exists`, `manual_in_use`, `failed`. `device_exists` and `manual_in_use` carry the `device` already registered |
 | `device` | Device | The device as stored, with its `device_id`. Empty when it was not registered |
 
-A rejection is not a tool error: it comes as `ok=false` with its `errors`.
+A rejection is a tool error (`isError`) with its `errors`, so the client treats it as something to fix or report (technical spec, section 6).
 
 **Preconditions**
 
@@ -125,7 +124,7 @@ The client registers a new device, optionally together with its manuals. The dev
 
 | # | Name | Given | When | Then |
 |---|---|---|---|---|
-| 1 | Register with required fields | | The client registers a device with brand and model only | `ok=true`. The inventory has a new record with a new `device_id`, that brand and model, no manuals and the status `active`, and the device is returned as stored. Nothing is added to the manuals index |
+| 1 | Register with required fields | | The client registers a device with brand and model only | Success. The inventory has a new record with a new `device_id`, that brand and model, no manuals and the status `active`, and the device is returned as stored. Nothing is added to the manuals index |
 | 2 | Register with optional fields | A manual exists in the manuals folder | The client registers a device with the required fields and also others, e.g. color and location | The inventory record has all the fields provided |
 | 3 | Register with several manuals | Several manuals exist in the manuals folder | The client registers a device with all of them | The inventory record lists all its manuals |
 | 4 | Manual in a subfolder | `shelly/dimmer_2_guide.pdf` exists in the manuals folder | The client registers a device with that relative path | The inventory record has that manual, with its relative path |
@@ -152,7 +151,7 @@ The registration is rejected if it breaks any of these rules:
 
 A rejected registration is rejected as a whole, and the client is told every reason at once, so it can fix everything in one go.
 
-In every criterion below, "rejected" means: `ok=false` with the errors listed, nothing from the registration is in the inventory or in the manuals index (a complete rollback), no file outside the manuals folder is read, the devices and manuals registered before are unchanged, and a warning with the reason is logged.
+In every criterion below, "rejected" means: a tool error (`isError`) with the errors listed, nothing from the registration is in the inventory or in the manuals index (a complete rollback), no file outside the manuals folder is read, the devices and manuals registered before are unchanged, and a warning with the reason is logged.
 
 **Acceptance criteria**
 
@@ -168,7 +167,7 @@ In every criterion below, "rejected" means: `ok=false` with the errors listed, n
 | 8 | Path with `..` | `secret.pdf` exists outside the manuals folder, and `shelly/dimmer_2_guide.pdf` exists inside it | The client gives `../secret.pdf`, `shelly/../../secret.pdf` or `shelly/../shelly/dimmer_2_guide.pdf` (which would end up inside the folder) | Rejected, with a `manual_not_allowed` error whose message says the path cannot contain `..` |
 | 9 | Existence outside the folder is not revealed | A file exists outside the manuals folder, and another path outside it does not exist | The client gives each of them | Both get the same `manual_not_allowed` error, with nothing about whether the file exists or about its content |
 | 10 | One invalid manual rolls back everything | | The client registers a device with several manuals, one of them not allowed | Rejected, with a `manual_not_allowed` error that says which manual it is. The device is not in the inventory either, and none of the other manuals is in the manuals index |
-| 11 | Unexpected failure | A valid registration is made while something outside the request fails, e.g. the database cannot be opened, or the indexing fails after the device record is written | The client registers the device | `ok=false` with a `failed` error whose message says what failed, that it is not caused by the request, and that the client should tell the user instead of retrying. Complete rollback: nothing is left in the inventory or in the manuals index |
+| 11 | Unexpected failure | A valid registration is made while something outside the request fails, e.g. the database cannot be opened, or the indexing fails after the device record is written | The client registers the device | Rejected (tool error) with a `failed` error whose message says what failed, that it is not caused by the request, and that the client should tell the user instead of retrying. Complete rollback: nothing is left in the inventory or in the manuals index |
 | 12 | Manual that cannot be read | Manuals exist in the manuals folder that are damaged, protected by a password or not a PDF | The client registers a device with one or more of them | Rejected, with a `manual_unreadable` error that lists all of them, each with its reason when it is known, and whose message says that those manuals were not saved and why, that the device was not registered either, and that the client should tell the user so they can provide another copy. Nothing is left in the inventory or in the manuals index, not even the manuals that can be read |
 
 ### 2.2 Tool `delete_device`
@@ -185,11 +184,10 @@ The device is matched as in `find_devices` (so a brand with nothing left once cl
 
 | Field | Type | Notes |
 |---|---|---|
-| `ok` | boolean | `true` when the device was deleted |
-| `device` | Device | The device as it was before being deleted, so the client can tell the user what was deleted. Empty when `ok` is `false` |
-| `error` | Error | Empty when `ok` is `true`. Codes: `invalid_fields`, `device_not_found`, `ambiguous_device` (carries the matching `devices`), `failed` |
+| `device` | Device | The device as it was before being deleted, so the client can tell the user what was deleted. Empty when the call was rejected |
+| `error` | Error | Empty when the call worked. Codes: `invalid_fields`, `device_not_found`, `ambiguous_device` (carries the matching `devices`), `failed` |
 
-A device that cannot be deleted is not a tool error: it comes as `ok=false` with its `error`. The tool deletes when it is called, with no confirmation: asking the user is the client's job. It works on one device at a time and never guesses which device is meant. A deletion cannot be undone: the device gets a new `device_id` if it is registered again, and ids are never reused.
+A device that cannot be deleted is a tool error (`isError`) with its `error`. The tool deletes when it is called, with no confirmation: asking the user is the client's job. It works on one device at a time and never guesses which device is meant. A deletion cannot be undone: the device gets a new `device_id` if it is registered again, and ids are never reused.
 
 **Preconditions**
 
@@ -203,14 +201,14 @@ The client gives enough information to single out a device, and the device is de
 
 | # | Name | Given | When | Then |
 |---|---|---|---|---|
-| 1 | Delete by brand and model | Several devices are registered, each with its manuals | The client wants to delete one of them and specifies its brand and model, which are enough to identify it | `ok=true`, and the device is returned as it was. The inventory has no record of it, and the manuals index has no chunk with its `device_id`. The manual files are still in the manuals folder. The other devices keep their inventory records and their chunks unchanged. The deletion is logged |
+| 1 | Delete by brand and model | Several devices are registered, each with its manuals | The client wants to delete one of them and specifies its brand and model, which are enough to identify it | Success, and the device is returned as it was. The inventory has no record of it, and the manuals index has no chunk with its `device_id`. The manual files are still in the manuals folder. The other devices keep their inventory records and their chunks unchanged. The deletion is logged |
 | 2 | Delete by other properties | Several devices are registered, each with its manuals | The client asks to delete one of them and specifies enough information to identify it, e.g. its type, brand and location | The device is deleted as in criterion 1 |
 
 #### UC-04 · Fail to delete a device
 
 The device is not deleted when the information the client gives does not single out one device, or when something fails while deleting. Either way the client is told what happened and what to do next.
 
-In every criterion below, "fails" means: `ok=false` with the error listed, nothing changes (the inventory and the manuals index are as they were, with every device and its content still in them), and the outcome is logged: a warning when the information is not valid, an error when something fails.
+In every criterion below, "fails" means: a tool error (`isError`) with the errors listed, nothing changes (the inventory and the manuals index are as they were, with every device and its content still in them), and the outcome is logged: a warning when the information is not valid, an error when something fails.
 
 **Acceptance criteria**
 
@@ -237,10 +235,9 @@ A device matches when every given field is equal to the same field of the device
 
 | Field | Type | Notes |
 |---|---|---|
-| `ok` | boolean | `true` when the lookup was done, even if nothing matched |
 | `devices` | list of Device | The devices that match, ordered by `device_id`. Empty when none does |
 | `message` | text | Set when `devices` is empty: why, and what to do next |
-| `error` | Error | Empty when `ok` is `true`. Code: `failed` |
+| `error` | Error | Empty when the call worked. Code: `failed` |
 
 **Preconditions**
 
@@ -254,7 +251,7 @@ The client looks for a device by what it knows about it, and exactly one device 
 
 | # | Name | Given | When | Then |
 |---|---|---|---|---|
-| 1 | Find by a unique property | Several devices are registered, and one of them has a property with a value that no other device has | The client looks for devices by that property and value | `ok=true`, and the result has that device and no other, with all its information including its `device_id`. `message` is empty |
+| 1 | Find by a unique property | Several devices are registered, and one of them has a property with a value that no other device has | The client looks for devices by that property and value | Success, and the result has that device and no other, with all its information including its `device_id`. `message` is empty |
 | 2 | Find by several properties | Several devices are registered, and some of them share some of their properties | The client looks for devices by a combination of properties that only one of them matches | The result has only that device |
 | 3 | Brand written with other characters | A device is registered whose brand was stored without accents or special characters (e.g. `BSH`, `Philips Hue`) | The client looks for it with the brand as the user writes it (e.g. `B.S.H.`, `Philips Hué`) | The result has that device |
 
@@ -266,7 +263,7 @@ The client looks for devices by what it knows about them, or lists all of them, 
 
 | # | Name | Given | When | Then |
 |---|---|---|---|---|
-| 1 | Find by a shared property | Several devices are registered, and some of them share the value of a property | The client looks for devices by that property and value | `ok=true`, and the result has every device with that value and no other, each with all its information including its `device_id`, ordered by `device_id`. `message` is empty |
+| 1 | Find by a shared property | Several devices are registered, and some of them share the value of a property | The client looks for devices by that property and value | Success, and the result has every device with that value and no other, each with all its information including its `device_id`, ordered by `device_id`. `message` is empty |
 | 2 | Every property must match | Several devices are registered, some of them sharing the values of several properties and others sharing only some | The client looks for devices by several properties | The result has only the devices that match all of them |
 | 3 | List every device | Several devices are registered | The client gives no property, or only blank ones | The result has every registered device, ordered by `device_id` |
 
@@ -278,14 +275,16 @@ The client gets an empty result, or the lookup fails. Either way it is told what
 
 | # | Name | Given | When | Then |
 |---|---|---|---|---|
-| 1 | No device matches | Several devices are registered | The client looks for devices, but none matches the properties given | `ok=true`, an empty list, and a `message` that says that no registered device matches the properties (listed), and that the client should ask the user for other details or register the device |
+| 1 | No device matches | Several devices are registered | The client looks for devices, but none matches the properties given | Success, an empty list, and a `message` that says that no registered device matches the properties (listed), and that the client should ask the user for other details or register the device |
 | 2 | The whole value must match | A device is registered | The client looks for devices by a value that is only part of the value of a property of the device | The same as in criterion 1: no device matches |
-| 3 | No device is registered | The inventory is empty | The client looks for devices, with or without properties | `ok=true`, an empty list, and a `message` that says that there are no registered devices and that the client should register one |
-| 4 | Unexpected failure | Several devices are registered | The client looks for devices and an unexpected failure occurs | `ok=false` with a `failed` error whose message says what failed, that it is not caused by the request, and that the client should tell the user instead of retrying. The failure is logged |
+| 3 | No device is registered | The inventory is empty | The client looks for devices, with or without properties | Success, an empty list, and a `message` that says that there are no registered devices and that the client should register one |
+| 4 | Unexpected failure | Several devices are registered | The client looks for devices and an unexpected failure occurs | Rejected (tool error) with a `failed` error whose message says what failed, that it is not caused by the request, and that the client should tell the user instead of retrying. The failure is logged |
 
 ### 2.4 Tool `search_manuals`
 
 A tool to search the manuals of a device. Excerpts with the same relevance come in the order of the manual.
+
+**Language and query.** The manuals and the queries are assumed to be in English; the client translates a query if needed. Why: it allows a smaller, faster English embedding model (technical spec, section 7). If manuals in other languages appear, the model must change and the index be rebuilt (steps in the technical spec). The `query` is free natural-language text matched by meaning. The search always returns the best `n_results` excerpts of the device, with no minimum relevance: a weak match is still returned and the client judges from the text, so the tool never hides a possible answer. Keywords, filters or a mix with exact-word search (FTS5) are not needed yet; revisit them if real manuals show that exact terms (model numbers, error codes) are missed.
 
 **Input**
 
@@ -299,10 +298,9 @@ A tool to search the manuals of a device. Excerpts with the same relevance come 
 
 | Field | Type | Notes |
 |---|---|---|
-| `ok` | boolean | `true` when the search was done, even if there is nothing to return |
 | `chunks` | list of Chunk | The excerpts, the most relevant first. Empty when there is nothing to return |
 | `message` | text | Set when `chunks` is empty: why, and what to do next |
-| `error` | Error | Empty when `ok` is `true`. Codes: `invalid_fields`, `device_not_found`, `failed` |
+| `error` | Error | Empty when the call worked. Codes: `invalid_fields`, `device_not_found`, `failed` |
 
 **Preconditions**
 
@@ -316,7 +314,7 @@ The client searches the manuals of one device with a query, and gets the excerpt
 
 | # | Name | Given | When | Then |
 |---|---|---|---|---|
-| 1 | Search the manuals | A device is registered, and its manuals are indexed | The client searches its manuals with a query | `ok=true`, and the result has the excerpts of its manuals that best match the query, the most relevant first. Each excerpt has its text, the `device_id`, the manual it comes from (relative path) and its page. `message` is empty |
+| 1 | Search the manuals | A device is registered, and its manuals are indexed | The client searches its manuals with a query | Success, and the result has the excerpts of its manuals that best match the query, the most relevant first. Each excerpt has its text, the `device_id`, the manual it comes from (relative path) and its page. `message` is empty |
 | 2 | Only that device | Several devices are registered, each with its manuals indexed | The client searches the manuals of one of them | Every excerpt belongs to that device, even if the content of another device matches the query better |
 | 3 | Number of results | A device has more excerpts than the client asks for | The client searches with a given number of results, or without one | The result has at most that number of excerpts, or at most the default number if the client gives none |
 
@@ -328,11 +326,11 @@ The client gets an empty result, or the search fails. Either way it is told what
 
 | # | Name | Given | When | Then |
 |---|---|---|---|---|
-| 1 | The device does not exist | No device is registered with the `device_id` given | The client searches its manuals | `ok=false` with a `device_not_found` error whose message says that the device does not exist and that the client should use `find_devices` to get a valid `device_id` |
-| 2 | Invalid arguments | A device is registered | The client searches with a blank query, or with a number of results below one | `ok=false` with an `invalid_fields` error whose message says which argument is invalid and what it must be |
-| 3 | The manuals have no text | A device is registered, but no text could be extracted from its manuals | The client searches its manuals | `ok=true`, an empty list, and a `message` that says that its manuals have no extractable text, so nothing can be answered from them, and that the client should tell the user |
-| 4 | The device has no manuals | A device is registered without manuals | The client searches its manuals | `ok=true`, an empty list, and a `message` that says that the device has no manuals, so nothing can be answered, and that the client should tell the user, who can add manuals with `update_device` |
-| 5 | Unexpected failure | A device is registered | The client searches its manuals and an unexpected failure occurs | `ok=false` with a `failed` error whose message says what failed, that it is not caused by the request, and that the client should tell the user instead of retrying. The failure is logged |
+| 1 | The device does not exist | No device is registered with the `device_id` given | The client searches its manuals | Rejected (tool error) with a `device_not_found` error whose message says that the device does not exist and that the client should use `find_devices` to get a valid `device_id` |
+| 2 | Invalid arguments | A device is registered | The client searches with a blank query, or with a number of results below one | Rejected (tool error) with a `invalid_fields` error whose message says which argument is invalid and what it must be |
+| 3 | The manuals have no text | A device is registered, but no text could be extracted from its manuals | The client searches its manuals | Success, an empty list, and a `message` that says that its manuals have no extractable text, so nothing can be answered from them, and that the client should tell the user |
+| 4 | The device has no manuals | A device is registered without manuals | The client searches its manuals | Success, an empty list, and a `message` that says that the device has no manuals, so nothing can be answered, and that the client should tell the user, who can add manuals with `update_device` |
+| 5 | Unexpected failure | A device is registered | The client searches its manuals and an unexpected failure occurs | Rejected (tool error) with a `failed` error whose message says what failed, that it is not caused by the request, and that the client should tell the user instead of retrying. The failure is logged |
 
 ### 2.5 Tool `update_device`
 
@@ -351,11 +349,10 @@ A field given **replaces** the current value as a whole. For a list (`manuals`, 
 
 | Field | Type | Notes |
 |---|---|---|
-| `ok` | boolean | `true` when the device was edited, or when the changes were already the current values |
-| `errors` | list of Error | Empty when `ok` is `true`. Codes: `invalid_fields`, `device_not_found`, `manual_not_allowed`, `manual_not_found`, `manual_unreadable`, `device_exists`, `manual_in_use`, `failed`. `device_exists` and `manual_in_use` carry the other `device` that causes the collision |
+| `errors` | list of Error | Empty when the call worked. Codes: `invalid_fields`, `device_not_found`, `manual_not_allowed`, `manual_not_found`, `manual_unreadable`, `device_exists`, `manual_in_use`, `failed`. `device_exists` and `manual_in_use` carry the other `device` that causes the collision |
 | `device` | Device | The device as stored after the edit, with its `device_id`. Empty when it was not edited |
 
-A rejection is not a tool error: it comes as `ok=false` with its `errors`. The tool edits when it is called, with no confirmation: asking the user is the client's job. It works on one device at a time.
+A rejection is a tool error (`isError`) with its `errors`. The tool edits when it is called, with no confirmation: asking the user is the client's job. It works on one device at a time.
 
 **Preconditions**
 
@@ -371,14 +368,14 @@ The client changes one or more fields of a registered device, other than its man
 
 | # | Name | Given | When | Then |
 |---|---|---|---|---|
-| 1 | Change one field | Several devices are registered | The client changes one optional field of one of them, e.g. its location | `ok=true`, and the device is returned as stored. The inventory record has the new value, and all its other fields and its `device_id` are as they were. The change is logged |
+| 1 | Change one field | Several devices are registered | The client changes one optional field of one of them, e.g. its location | Success, and the device is returned as stored. The inventory record has the new value, and all its other fields and its `device_id` are as they were. The change is logged |
 | 2 | Change several fields | A device is registered | The client changes several fields at once, e.g. status, warranty end date and urls | The inventory record has all the new values. A list given (`urls`) replaces the previous list as a whole |
 | 3 | Fields not sent are kept | A device is registered with optional fields filled in | The client changes one field and does not send the others | The fields not sent keep their value |
 | 4 | Change brand or model | Two devices are registered, with different brand and model | The client changes the model of one of them to a model that no other device has with that brand | The record has the new model. `find_devices` finds the device by the new model and no longer by the old one. The device and its chunks keep the same `device_id` |
 | 5 | Values are normalized | A device is registered | The client changes its brand to `philips`, its model to ` hue-2/b ` and its location to `trastero` | The record has brand `Philips`, model `HUE-2/B` (hyphen and slash kept) and location `Trastero`. The device is returned as stored |
-| 6 | A device does not collide with itself | A device is registered | The client writes its brand or model differently, so that it is the same as the current one under the comparison of `find_devices` (case, accents and spaces) | `ok=true`. The record has the new value, normalized as in criterion 5 |
-| 7 | Empty an optional field | A device is registered with its optional fields filled in | The client sends any optional field (every field except brand, model and status) with an empty value | `ok=true`. The record has that field empty, and all its other fields are as they were. For a list, an empty list leaves the device without items |
-| 8 | The changes are the current values | A device is registered | The client sends values that are already the current ones, once normalized | `ok=true`, and the device is returned unchanged. Nothing is written to the inventory nor to the manuals index |
+| 6 | A device does not collide with itself | A device is registered | The client writes its brand or model differently, so that it is the same as the current one under the comparison of `find_devices` (case, accents and spaces) | Success. The record has the new value, normalized as in criterion 5 |
+| 7 | Empty an optional field | A device is registered with its optional fields filled in | The client sends any optional field (every field except brand, model and status) with an empty value | Success. The record has that field empty, and all its other fields are as they were. For a list, an empty list leaves the device without items |
+| 8 | The changes are the current values | A device is registered | The client sends values that are already the current ones, once normalized | Success, and the device is returned unchanged. Nothing is written to the inventory nor to the manuals index |
 
 #### UC-11 · Change the manuals of a device
 
@@ -388,16 +385,16 @@ The client gives a new list of manuals for a registered device. The inventory re
 
 | # | Name | Given | When | Then |
 |---|---|---|---|---|
-| 1 | Add a manual | A device is registered with one manual, and another manual exists in the manuals folder | The client sends the list with the current manual and the new one | `ok=true`. The inventory record lists both manuals. The manuals index has the chunks of the new manual, each one with the `device_id` of the device, the manual it comes from and its page. The chunks of the manual that was already there are unchanged |
+| 1 | Add a manual | A device is registered with one manual, and another manual exists in the manuals folder | The client sends the list with the current manual and the new one | Success. The inventory record lists both manuals. The manuals index has the chunks of the new manual, each one with the `device_id` of the device, the manual it comes from and its page. The chunks of the manual that was already there are unchanged |
 | 2 | Remove a manual | A device is registered with several manuals | The client sends the list without one of them | The record no longer lists it, and the manuals index has no chunk of it. The chunks of the other manuals are unchanged, and the file is still in the manuals folder |
 | 3 | Replace a manual | A device is registered with a manual, and another manual exists in the manuals folder | The client sends a list with only the other manual | The record lists only the other manual. The chunks of the old one are gone and the ones of the new one are in the manuals index |
-| 4 | Manual that stays | A device is registered with a manual | The client sends a list that has that manual again | `ok=true`. The manual stays in the record, because it belongs to this very device, and its chunks stay in the manuals index as they were |
-| 5 | Remove every manual | A device is registered with several manuals | The client sends an empty list | `ok=true`. The record has no manuals, the manuals index has no chunk of the device, and the rest of its fields are as they were. The files are still in the manuals folder |
+| 4 | Manual that stays | A device is registered with a manual | The client sends a list that has that manual again | Success. The manual stays in the record, because it belongs to this very device, and its chunks stay in the manuals index as they were |
+| 5 | Remove every manual | A device is registered with several manuals | The client sends an empty list | Success. The record has no manuals, the manuals index has no chunk of the device, and the rest of its fields are as they were. The files are still in the manuals folder |
 | 6 | Add manuals to a device without any | A device is registered without manuals, and a manual exists in the manuals folder | The client sends a list with that manual | The record lists it, and its chunks are in the manuals index with the `device_id` of the device |
 | 7 | Manual in a subfolder | `shelly/dimmer_2_guide.pdf` exists in the manuals folder | The client adds that relative path | The record has that manual with its relative path, and it is indexed |
 | 8 | Data and manuals together | A device is registered | The client changes its color and its manuals in the same call | Both changes are applied together: the record has the new color and the new list, and the manuals index is in line with it |
 | 9 | Manual freed by another device | A manual belongs to device A | The client first removes it from device A and then adds it to device B | Both calls succeed. The chunks of the manual now carry the `device_id` of device B only |
-| 10 | Manual whose file is gone | A device is registered with a manual, and the file was later removed from the manuals folder | The client changes another field of the device, or sends a list without that manual | `ok=true`. The change is applied. If the manual stays in the list, it stays in the record with its chunks; if it is removed, it leaves the record and the manuals index |
+| 10 | Manual whose file is gone | A device is registered with a manual, and the file was later removed from the manuals folder | The client changes another field of the device, or sends a list without that manual | Success. The change is applied. If the manual stays in the list, it stays in the record with its chunks; if it is removed, it leaves the record and the manuals index |
 | 11 | Manual repeated | A device is registered | The client sends a list that has the same manual more than once, or written in different ways that lead to the same file | The record lists the manual once, and its content is indexed once (or stays as it was, if the device already had it) |
 
 #### UC-12 · Reject an invalid update
@@ -413,7 +410,7 @@ The update is rejected, as a whole, when any of these rules is broken. The clien
 
 `device_exists` and `manual_in_use` return the other device involved. Unexpected failures are `failed`.
 
-In every criterion below, "rejected" means: `ok=false` with the errors listed, a complete rollback (the inventory and the manuals index are as they were), and the outcome logged.
+In every criterion below, "rejected" means: a tool error (`isError`) with the errors listed, a complete rollback (the inventory and the manuals index are as they were), and the outcome logged.
 
 **Acceptance criteria**
 
@@ -428,15 +425,9 @@ In every criterion below, "rejected" means: `ok=false` with the errors listed, a
 | 7 | Path outside the manuals folder | A file exists outside the manuals folder, and a link inside the folder points to it | The client adds a manual that points outside: an absolute path, the path of the link, `~/Documents/guide.pdf`, encoded sequences (`%2e%2e/secret.pdf`) or a path with `..` | Rejected, with a `manual_not_allowed` error as in `register_device` (UC-02, criteria 7 to 9): the message says the manual is outside the manuals folder, or that the path cannot contain `..`, and nothing outside the folder is read nor revealed |
 | 8 | Several reasons at once | Devices A and B are registered | The client edits B with the brand and model of A, a manual that belongs to A, and a manual that does not exist | Rejected, with a `device_exists`, a `manual_in_use` and a `manual_not_found` error, all in the same answer |
 | 9 | One invalid manual rolls back everything | A device is registered with its manuals indexed | The client changes its color, adds a valid manual and a manual that is not allowed | Rejected, with a `manual_not_allowed` error that says which manual it is. The color is not changed, the valid manual is not in the record nor in the manuals index, and the chunks of the current manuals are unchanged |
-| 10 | Unexpected failure | A valid update is made while something outside the request fails, e.g. the database cannot be opened, or the indexing of a new manual fails after the record is written | The client edits the device | `ok=false` with a `failed` error whose message says what failed, that it is not caused by the request, that the device was not changed, and that the client should tell the user instead of retrying. Complete rollback: the record is as it was, the chunks of the removed manuals are still in the manuals index, and the chunks of the new ones are not |
+| 10 | Unexpected failure | A valid update is made while something outside the request fails, e.g. the database cannot be opened, or the indexing of a new manual fails after the record is written | The client edits the device | Rejected (tool error) with a `failed` error whose message says what failed, that it is not caused by the request, that the device was not changed, and that the client should tell the user instead of retrying. Complete rollback: the record is as it was, the chunks of the removed manuals are still in the manuals index, and the chunks of the new ones are not |
 | 11 | Manual that cannot be read | A device is registered, and a manual exists in the manuals folder that is damaged, protected by a password or not a PDF | The client adds that manual, alone or with others, and may change other fields too | Rejected, with a `manual_unreadable` error that lists it with its reason when known, and whose message says that it was not saved and why, that nothing was changed, and that the client should tell the user so they can provide another copy. The other manuals of the call and the other changes are not applied either |
 
 ## 3. Open questions
 
-- **Status workflow.** **Decided for now:** three statuses (`active`, `inactive`, `archived`) and no workflow: any change from one to another is allowed. Revisit if real use needs more statuses (e.g. sold or discarded) or rules (e.g. an `archived` device that is dropped from `find_devices` by default).
-- **Normalization of the brand and of `invoice`.** **Decided:** the brand loses its accents and any character that is not a letter, a digit, a space, a hyphen or an ampersand; then, if it comes entirely in uppercase it is kept as it is, so acronyms such as `LG` or `TCL` survive, and any other brand gets the first letter of each word in uppercase. `invoice` is stored as given, because it may be a path or a reference where the case matters.
-
-- **Case and accents.** **Decided, for every tool:** text is compared in lowercase, without accents and ignoring the spaces before, after and between words. It applies to `find_devices`, to `delete_device` (which matches as it does) and to the duplicate rule of `register_device` (brand and model). One function in the code, `TextKeys.Fold`.
-- **Language of the manuals and the queries.** **Decided for now: English only.** All manuals are assumed to be in English, and so are the queries (the client translates them if needed). That allowed an English embedding model (technical spec, section 7). If manuals in other languages appear, the model must change and the index be rebuilt; the steps are in the technical spec.
-- **The `query` of `search_manuals`.** **Decided for now:** free natural-language text in English, matched by meaning, as drafted in the input table. The vector store and the embedding model are chosen (technical spec, section 7). The search always returns the best `n_results` excerpts of the device, with no minimum relevance: a weak match is still returned, and the client judges from the text. Keywords, filters or a mix with exact-word search (FTS5) are not needed yet; revisit them if real manuals show that exact terms (model numbers, error codes) are missed.
-- **Regenerating the chunks.** Open. How the manuals are split into chunks (target size, maximum size, overlap, how lists are kept together) is a tuning decision that real manuals will keep changing, and a new value only applies to devices registered afterwards: the existing chunks are stale, and today the only way to refresh them is to delete and register the devices again. A tool to rebuild the chunks of one device or of all of them, with the new values as arguments (the manual files stay as they are, and they are read again), would let the values be tuned without losing the inventory. To decide: whether it is an MCP tool (the client could call it by mistake, and it can take minutes) or an operator command outside the MCP; whether the values are arguments or configuration; and what a search returns while the rebuild runs. It shares the "rebuild the index" step of the technical spec (section 7), which also needs it when the embedding model changes.
+No open questions. The question of regenerating the chunks is in the technical spec (see the open question *Regenerating the chunks and rebuilding the index*).
