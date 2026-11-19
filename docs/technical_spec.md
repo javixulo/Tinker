@@ -32,7 +32,7 @@ scripts/smoke-test.sh      Smoke test of the Docker image (section 8)
 docs/                      Functional and technical specs
 ```
 
-**Status.** `Tinker.Core`, `Tinker.Mcp` (web SDK, `WithHttpTransport`, `MapMcp("/mcp")`, `/health`), `Tinker.UnitTests`, `Tinker.IntegrationTests`, `Tinker.ModelTests` and `Tinker.ContractTests` exist, with `register_device` (UC-01 and UC-02), `delete_device` (UC-03 and UC-04), `find_devices` (UC-05 to UC-07) and `search_manuals` (UC-08 and UC-09) implemented: all four tools exist. The changes that `update_device` brought to the existing tools are built (optional manuals, normalized values, new statuses, `manual_unreadable`, brand cleaning in lookups, no-manuals message in `search_manuals`); `update_device` (UC-10 to UC-12) is built too: all five tools exist. The placeholder `ping` tool is gone. Configuration is read from the `Tinker` section (`Tinker__DataPath`, `Tinker__ManualsPath`). OpenTelemetry is exported through OTLP only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+**Status.** `Tinker.Core`, `Tinker.Mcp` (web SDK, `WithHttpTransport`, `MapMcp("/mcp")`, `/health`), `Tinker.UnitTests`, `Tinker.IntegrationTests`, `Tinker.ModelTests` and `Tinker.ContractTests` exist, with `register_device` (UC-01 and UC-02), `delete_device` (UC-03 and UC-04), `find_devices` (UC-05 to UC-07) and `search_manuals` (UC-08 and UC-09) implemented: all four tools exist. The changes that `update_device` brought to the existing tools are built (optional manuals, normalized values, new statuses, `manual_unreadable`, brand cleaning in lookups, no-manuals message in `search_manuals`); `update_device` (UC-10 to UC-12) is built too: all five tools exist. The placeholder `ping` tool is gone. Configuration is read from the `Tinker` section (`Tinker__DataPath`, `Tinker__ManualsPath`). OpenTelemetry (logs and traces) is exported through OTLP only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
 
 ## 3. Observability
 
@@ -41,7 +41,9 @@ docs/                      Functional and technical specs
 - **OpenTelemetry (OTLP) for logs, traces and metrics.** Every MCP in the system exports through OTLP, so there is one pipeline and one place to look. Traces are correlated across services with the W3C `traceparent` header, provided the client propagates it.
 - **Seq is the backend**, as a single container that accepts OTLP. Chosen over the Grafana stack (Loki, Tempo, Prometheus, collector) because it is one container and the target NAS has limited resources. A collector can be added later without changing the MCPs.
 - **Console logging to stderr stays on** next to OTLP. Why: `docker logs` keeps working when Seq is down or unreachable.
-- Exporter configuration uses the standard variables (`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`).
+- Exporter configuration uses the standard variables (`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_PROTOCOL`, `OTEL_SERVICE_NAME`).
+- **Logs and traces only; no metrics.** Seq does not accept OTLP metrics and the code registers none.
+- **Seq has its own compose file and its own network** (`seq/docker-compose.yml`, network `seq-net`, UI on port 8081, ingestion on 5341, no authentication: trusted local network only). An MCP that wants to send its telemetry joins `seq-net` as an `external` network and sets `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` (Seq has no gRPC) and `OTEL_EXPORTER_OTLP_ENDPOINT=http://seq:5341/ingest/otlp`; the SDK appends `/v1/logs` and `/v1/traces` itself. Seq must be started first. **Checked** with the sample sandbox: logs and spans of a `register_device` call show up in Seq.
 
 **Proposed additions: what is recorded.**
 
@@ -75,7 +77,7 @@ docs/                      Functional and technical specs
 - The manuals folder is mounted **read-only** (`:ro`). The server never writes manuals, and a read-only mount is a second line of defence for the confinement of manual paths (section 5).
 - The startup validation also checks that the database schema is at the expected version (section 7). **Built:** it checks that the embedding model files exist and that the embedding model of the index is the configured one.
 
-**Built.** `Dockerfile` (multi-stage, .NET 10 `aspnet` runtime, `curl` only for the healthcheck; the native libraries of ONNX Runtime and SQLite are trimmed to `linux-x64` and `linux-arm64`, since a container always runs Linux: the image goes from about 790 MB to about 505 MB) and `docker-compose.yml`: `/data` (bind mount), `/manuals:ro`, the embedding model inside the image (section 7), `user:` from `TINKER_UID`/`TINKER_GID`, `TZ`, OTLP endpoint through `OTEL_EXPORTER_OTLP_ENDPOINT`, `restart: unless-stopped`, healthcheck on `/health`. Checked by building the image and running it as a non-root user: it starts, loads the model, registers a device through `/mcp`, keeps the data across a restart and rejects a duplicate. Not done: the shared Docker network and Seq (section 9), a published image.
+**Built.** `Dockerfile` (multi-stage, .NET 10 `aspnet` runtime, `curl` only for the healthcheck; the native libraries of ONNX Runtime and SQLite are trimmed to `linux-x64` and `linux-arm64`, since a container always runs Linux: the image goes from about 790 MB to about 505 MB) and `docker-compose.yml`: `/data` (bind mount), `/manuals:ro`, the embedding model inside the image (section 7), `user:` from `TINKER_UID`/`TINKER_GID`, `TZ`, OTLP endpoint through `OTEL_EXPORTER_OTLP_ENDPOINT`, `restart: unless-stopped`, healthcheck on `/health`. Checked by building the image and running it as a non-root user: it starts, loads the model, registers a device through `/mcp`, keeps the data across a restart and rejects a duplicate. Seq is built as a separate compose (section 3); `docker-compose.yml` still exports nothing by default. Not done: a published image.
 
 ## 5. Architecture
 
@@ -338,7 +340,7 @@ To build several platforms without compiling under emulation, the `build` and `m
 
 To be decided and written here as they are made.
 
-- **Docker network.** Whether each MCP has its own compose file and all join an external shared network (e.g. `tinker-net`, created once), or everything lives in a single compose file. The first keeps MCPs independently updatable, the second is simpler. The shared network is needed in either case for the MCPs to reach Seq.
+- **Docker network.** Decided for Seq: its own compose file and its own network `seq-net`, which MCPs join as an external network (section 3). Open: whether the MCPs also share a network among themselves.
 - **Startup validation failure.** Whether a failed check (e.g. the data folder is not writable) makes the process exit with an error, or lets it run degraded. Exiting makes the problem obvious but, with `restart: unless-stopped`, the container will restart in a loop. Leaning to exit, since an MCP that cannot write its data is not useful.
 - **stdio transport.** Whether to keep stdio as a second transport for local development and for clients that cannot speak HTTP. The MCP logic would not change, only the startup.
 - **Traces and personal data.** Whether the system needs more than OpenTelemetry + Seq (for example trace files kept on disk, or redaction of spans). The query text and the values of a rejected registration can contain personal data, so whether they are recorded, redacted or left out is part of this question.

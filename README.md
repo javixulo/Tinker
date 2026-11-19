@@ -100,7 +100,8 @@ Environment variables, using the ASP.NET Core convention:
 | `Tinker__ManualsPath` | `manuals` | Folder with the PDF manuals. Manuals are given to the tools as paths relative to it |
 | `Tinker__EmbeddingModelPath` | `models/bge-small-en-v1.5` | Folder with `model.onnx` and `vocab.txt` |
 | `Tinker__EmbeddingModel` | `bge-small-en-v1.5` | `hash` selects a model-free generator for development and tests |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | unset | When set, logs, traces and metrics are exported through OTLP |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | unset | When set, logs and traces are exported through OTLP. For Seq: `http://seq:5341/ingest/otlp` |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc` | Seq only accepts `http/protobuf`: set it when exporting to Seq |
 
 On start the server validates its configuration (data folder writable, manuals folder readable, database schema, embedding model) and logs what is wrong and how to fix it.
 
@@ -125,6 +126,7 @@ services:
     environment:
       TZ: Europe/Madrid
       OTEL_SERVICE_NAME: tinker-mcp
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf   # Seq does not speak gRPC
       OTEL_EXPORTER_OTLP_ENDPOINT: ""   # e.g. http://seq:5341/ingest/otlp ; empty exports nothing
     volumes:
       - /srv/tinker/data:/data          # SQLite database, on a local disk
@@ -193,7 +195,7 @@ The main design decisions:
 - **Local semantic search.** On registration each manual is read page by page (PdfPig), split into chunks that follow the structure of the text (bullets, steps, warnings), embedded locally and stored as vectors. A query is embedded the same way and ranked by cosine similarity. There is no LLM and no API key in the server.
 - **Manuals stay inside the manuals folder.** One class, `ManualPathResolver`, resolves every manual path that comes from a client, rejecting absolute paths, `..`, encoded sequences and links that lead outside the folder, and without revealing whether a file outside exists.
 - **Outcomes are data, not protocol errors.** Rejections, empty results and unexpected failures are normal tool results (`ok`, `error` or `errors`, `message`) with `snake_case` fields; no raw exception ever reaches the client.
-- **Observability.** Logs go to the console on stderr and, when configured, to OpenTelemetry (OTLP) together with traces and metrics, with one span per tool call. Manual content is never recorded.
+- **Observability.** Logs go to the console on stderr and, when configured, to OpenTelemetry (OTLP) together with traces, with one span per tool call. Manual content is never recorded.
 
 More detail, including the storage schema, the error codes and messages, and how to change the embedding model, is in [`docs/technical_spec.md`](docs/technical_spec.md).
 

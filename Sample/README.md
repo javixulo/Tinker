@@ -23,7 +23,7 @@ The `Dockerfile` is not here: it is in the repository root (`../Dockerfile`) and
 2. `docker compose up --build` (or `docker-compose`, with `-d` to leave it in the background) — builds the image (the first time takes a few minutes) and starts the server. `./up.sh` does the same and waits until it is healthy.
 3. `./scenarios.sh` — or call by hand, e.g. `./call.sh '{"brand":"Shelly","model":"Dimmer 2","manuals":["shelly/dimmer_2_guide.pdf"]}'` and then `./find.sh '{"brand":"shelly"}'` (`./find.sh '{}'` lists every device).
 4. `./db.sh "SELECT * FROM devices"` — see what was stored. After a rejection nothing must have changed.
-5. `docker logs tinker-sample` — the server log (warnings for rejections, errors for failures).
+5. `docker logs tinker-sample` — the server log (warnings for rejections, errors for failures). The same logs and the traces go to Seq: start it first with `cd ../seq && docker compose up -d` (it creates the `seq-net` network the sample joins) and open http://localhost:8081.
 6. `docker compose down` to stop (`./down.sh` is the same); `./down.sh --reset` also deletes the database, to start from zero.
 
 To use your own manuals, copy the PDFs into `manuals/` (subfolders are fine) and register them with their path relative to that folder.

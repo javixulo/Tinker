@@ -1,0 +1,29 @@
+# Seq: the log backend of Tinker and any other MCP (technical spec, section 3). Its own compose and its own network.
+# From this folder:  docker compose up -d      UI at http://localhost:8081
+# OTLP over HTTP:    http://seq:5341/ingest/otlp   (from containers on the `seq-net` network)
+#                    http://localhost:5341/ingest/otlp   (from the host)
+# This setup has NO authentication: it is for a trusted local network. Do not expose these ports to the internet.
+services:
+  seq:
+    image: datalust/seq:latest
+    container_name: seq
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_NOAUTHENTICATION: "true"
+      TZ: ${TZ:-Europe/Madrid}
+    ports:
+      - "${SEQ_UI_PORT:-8081}:80"       # web UI
+      - "${SEQ_INGEST_PORT:-5341}:5341" # ingestion (OTLP, API)
+    volumes:
+      - seq-data:/data
+    networks:
+      - seq-net
+
+volumes:
+  seq-data:
+
+networks:
+  # A fixed name so other compose files can join it with `external: true`.
+  seq-net:
+    name: seq-net
