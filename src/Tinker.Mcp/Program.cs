@@ -74,6 +74,7 @@ var json = new JsonSerializerOptions(JsonSerializerDefaults.Web)
 builder.Services
     .AddMcpServer()
     .WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless)
+    .WithRequestFilters(filters => filters.AddCallToolFilter(ToolErrorFlag.Apply))
     .WithTools<RegisterDeviceTool>(json)
     .WithTools<FindDevicesTool>(json)
     .WithTools<DeleteDeviceTool>(json)

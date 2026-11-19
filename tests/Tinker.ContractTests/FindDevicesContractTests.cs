@@ -59,7 +59,6 @@ public sealed class FindDevicesContractTests : IAsyncLifetime
     {
         var empty = await Find(new { device = new { brand = "Shelly" } });
         Assert.NotEqual(true, empty.IsError);
-        Assert.True(empty.StructuredContent!.Value.GetProperty("ok").GetBoolean());
         Assert.Equal(0, empty.StructuredContent!.Value.GetProperty("devices").GetArrayLength());
         Assert.Contains("no registered devices", empty.StructuredContent!.Value.GetProperty("message").GetString(), StringComparison.Ordinal);
 
@@ -68,7 +67,6 @@ public sealed class FindDevicesContractTests : IAsyncLifetime
         var found = await Find(new { device = new { brand = "shelly", location = "habitacion" } });
         Assert.NotEqual(true, found.IsError);
         var content = found.StructuredContent!.Value;
-        Assert.True(content.GetProperty("ok").GetBoolean());
         var device = Assert.Single(content.GetProperty("devices").EnumerateArray());
         Assert.Equal(1, device.GetProperty("device_id").GetInt64());
         Assert.Equal("Habitación", device.GetProperty("location").GetString());

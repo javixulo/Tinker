@@ -55,23 +55,21 @@ public sealed class DeleteDeviceContractTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Deletes_a_device_and_every_outcome_is_a_normal_result()
+    public async Task Deletes_a_device_and_a_rejection_is_a_tool_error()
     {
         await Register(new { device = new { brand = "Shelly", model = "Dimmer 2", manuals = new[] { "shelly/dimmer_2_guide.pdf" } } });
 
         var blank = await Delete(new { });
-        Assert.NotEqual(true, blank.IsError);
-        Assert.False(blank.StructuredContent!.Value.GetProperty("ok").GetBoolean());
+        Assert.True(blank.IsError);
         Assert.Equal("invalid_fields", blank.StructuredContent!.Value.GetProperty("error").GetProperty("code").GetString());
 
         var missing = await Delete(new { device = new { brand = "Samsung" } });
-        Assert.NotEqual(true, missing.IsError);
+        Assert.True(missing.IsError);
         Assert.Equal("device_not_found", missing.StructuredContent!.Value.GetProperty("error").GetProperty("code").GetString());
 
         var deleted = await Delete(new { device = new { brand = "shelly", model = "DIMMER 2" } });
         Assert.NotEqual(true, deleted.IsError);
         var content = deleted.StructuredContent!.Value;
-        Assert.True(content.GetProperty("ok").GetBoolean());
         Assert.Equal(1, content.GetProperty("device").GetProperty("device_id").GetInt64());
         Assert.Equal("DIMMER 2", content.GetProperty("device").GetProperty("model").GetString());
 

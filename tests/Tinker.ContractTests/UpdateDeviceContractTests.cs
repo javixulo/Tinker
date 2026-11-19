@@ -74,14 +74,14 @@ public sealed class UpdateDeviceContractTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task A_rejection_is_a_normal_result_and_a_missing_argument_is_tolerated()
+    public async Task A_rejection_is_a_tool_error_and_a_missing_argument_is_tolerated()
     {
         var notFound = await Call("update_device", new { device_id = 9, changes = new { color = "Red" } });
         var missing = await Call("update_device", new { });
 
-        Assert.NotEqual(true, notFound.IsError);
+        Assert.True(notFound.IsError);
         Assert.Equal("device_not_found", notFound.StructuredContent!.Value.GetProperty("errors")[0].GetProperty("code").GetString());
-        Assert.NotEqual(true, missing.IsError);
+        Assert.True(missing.IsError);
         Assert.Equal("invalid_fields", missing.StructuredContent!.Value.GetProperty("errors")[0].GetProperty("code").GetString());
     }
 

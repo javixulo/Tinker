@@ -64,7 +64,6 @@ public sealed class RegisterDeviceContractTests : IAsyncLifetime
 
         Assert.NotEqual(true, result.IsError);
         var content = result.StructuredContent!.Value;
-        Assert.True(content.GetProperty("ok").GetBoolean());
         var device = content.GetProperty("device");
         Assert.Equal(1, device.GetProperty("device_id").GetInt64());
         Assert.Equal("Dimmer", device.GetProperty("device_type").GetString());
@@ -73,23 +72,22 @@ public sealed class RegisterDeviceContractTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task A_rejection_is_a_normal_result_not_a_protocol_error()
+    public async Task A_rejection_is_a_tool_error_with_the_same_structured_content()
     {
         var result = await Call(new { device = new { brand = "Shelly", model = " ", manuals = new[] { "../secret.pdf" } } });
 
-        Assert.NotEqual(true, result.IsError);
+        Assert.True(result.IsError);
         var content = result.StructuredContent!.Value;
-        Assert.False(content.GetProperty("ok").GetBoolean());
         var codes = content.GetProperty("errors").EnumerateArray().Select(e => e.GetProperty("code").GetString()).ToList();
         Assert.Equal(["invalid_fields", "manual_not_allowed"], codes);
     }
 
     [Fact]
-    public async Task A_missing_device_is_tolerated_as_invalid_fields()
+    public async Task A_missing_device_is_tolerated_as_a_tool_error()
     {
         var result = await Call(new { });
 
-        Assert.NotEqual(true, result.IsError);
+        Assert.True(result.IsError);
         var errors = result.StructuredContent!.Value.GetProperty("errors");
         Assert.Equal("invalid_fields", errors[0].GetProperty("code").GetString());
     }

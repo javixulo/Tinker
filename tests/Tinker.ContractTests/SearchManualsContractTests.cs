@@ -63,13 +63,12 @@ public sealed class SearchManualsContractTests : IAsyncLifetime
     public async Task Searches_the_manuals_of_a_registered_device()
     {
         var registered = await Register(new { device = new { brand = "Shelly", model = "Dimmer 2", manuals = new[] { "shelly/dimmer_2_guide.pdf" } } });
-        Assert.True(registered.StructuredContent!.Value.GetProperty("ok").GetBoolean());
+        Assert.NotEqual(true, registered.IsError);
 
         var found = await Search(new { device_id = 1, query = "how do I install and wire the dimmer", n_results = 2 });
 
         Assert.NotEqual(true, found.IsError);
         var content = found.StructuredContent!.Value;
-        Assert.True(content.GetProperty("ok").GetBoolean());
         var chunks = content.GetProperty("chunks");
         Assert.InRange(chunks.GetArrayLength(), 1, 2);
         var first = chunks[0];
@@ -81,25 +80,24 @@ public sealed class SearchManualsContractTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Every_outcome_is_a_normal_result_and_a_missing_argument_is_not_a_binding_error()
+    public async Task A_rejection_is_a_tool_error_and_a_missing_argument_is_not_a_binding_error()
     {
         await Register(new { device = new { brand = "Shelly", model = "Dimmer 2", manuals = new[] { "shelly/dimmer_2_guide.pdf" } } });
 
         var noQuery = await Search(new { device_id = 1 });
-        Assert.NotEqual(true, noQuery.IsError);
-        Assert.False(noQuery.StructuredContent!.Value.GetProperty("ok").GetBoolean());
+        Assert.True(noQuery.IsError);
         Assert.Equal("invalid_fields", noQuery.StructuredContent!.Value.GetProperty("error").GetProperty("code").GetString());
 
         var noDevice = await Search(new { query = "wifi" });
-        Assert.NotEqual(true, noDevice.IsError);
+        Assert.True(noDevice.IsError);
         Assert.Equal("invalid_fields", noDevice.StructuredContent!.Value.GetProperty("error").GetProperty("code").GetString());
 
         var badCount = await Search(new { device_id = 1, query = "wifi", n_results = 0 });
-        Assert.NotEqual(true, badCount.IsError);
+        Assert.True(badCount.IsError);
         Assert.Equal("invalid_fields", badCount.StructuredContent!.Value.GetProperty("error").GetProperty("code").GetString());
 
         var unknown = await Search(new { device_id = 42, query = "wifi" });
-        Assert.NotEqual(true, unknown.IsError);
+        Assert.True(unknown.IsError);
         var error = unknown.StructuredContent!.Value.GetProperty("error");
         Assert.Equal("device_not_found", error.GetProperty("code").GetString());
         Assert.Contains("find_devices", error.GetProperty("message").GetString(), StringComparison.Ordinal);
