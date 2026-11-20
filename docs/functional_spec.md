@@ -125,7 +125,7 @@ The client registers a new device, optionally together with its manuals. The dev
 | ID | Name | Given | When | Then |
 |---|---|---|---|---|
 | UC-01.AC1 | Register with required fields | | The client registers a device with brand and model only | Success. The inventory has a new record with a new `device_id`, that brand and model, no manuals and the status `active`, and the device is returned as stored. Nothing is added to the manuals index |
-| UC-01.AC2 | Register with optional fields | A manual exists in the manuals folder | The client registers a device with the required fields and also others, e.g. color and location | The inventory record has all the fields provided |
+| UC-01.AC2 | Register with optional fields | | The client registers a device with the required fields and also its color and location | The inventory record has all the fields provided |
 | UC-01.AC3 | Register with several manuals | Several manuals exist in the manuals folder | The client registers a device with all of them | The inventory record lists all its manuals |
 | UC-01.AC4 | Manual in a subfolder | `shelly/dimmer_2_guide.pdf` exists in the manuals folder | The client registers a device with that relative path | The inventory record has that manual, with its relative path |
 | UC-01.AC5 | Manual content is indexed | A manual exists in the manuals folder | The client registers a device with that manual | The text of the manual is stored in the manuals index as chunks, each one with the `device_id` of the new inventory record, the manual it comes from and its page |
@@ -139,25 +139,23 @@ The client registers a new device, optionally together with its manuals. The dev
 
 The registration is rejected if it breaks any of these rules:
 
-- **Required fields are provided.** Brand and model. A value that is empty or has only spaces counts as not provided, and the brand is judged once normalized (section 1).
-- **Every manual is inside the manuals folder.** An absolute path, a path that contains `..`, `~` or encoded sequences, or a link that points outside the folder is not allowed.
-- **Every manual exists** in the manuals folder.
-- **Every manual can be read.** A manual that is damaged, protected by a password or not a PDF cannot be used (`manual_unreadable`). A manual that opens but has no text, e.g. a scanned one, is accepted.
-- **The device is not already registered.** Two devices are the same when they have the same brand and the same model, ignoring upper and lower case, accents and the spaces before, after and between words (`Philips Hué` and `philips  hue` are the same device). It is the same comparison `find_devices` uses.
-- **Every manual is new.** A manual can belong to only one device.
-- **The status is valid** when it is given: one of the statuses of section 1 (`invalid_fields`).
+1. Required fields are provided: brand and model. A value that is empty or has only spaces counts as not provided, and the brand is judged once normalized (section 1).
+2. Every manual is inside the manuals folder. An absolute path, a path that contains `..`, `~` or encoded sequences, or a link that points outside the folder is not allowed.
+3. Every manual exists in the manuals folder.
+4. Every manual can be read. A manual that is damaged, protected by a password or not a PDF cannot be used (`manual_unreadable`). A manual that opens but has no text, e.g. a scanned one, is accepted.
+5. The device is not already registered. Two devices are the same when they have the same brand and the same model, ignoring upper and lower case, accents and the spaces before, after and between words (`Philips Hué` and `philips  hue` are the same device). It is the same comparison `find_devices` uses.
+6. Every manual is new: a manual can belong to only one device.
+7. The status is valid when it is given: one of the statuses of section 1 (`invalid_fields`).
 
 **Errors.** There is one error code per rule: `invalid_fields`, `manual_not_allowed`, `manual_not_found`, `manual_unreadable`, `device_exists` and `manual_in_use`, plus `failed` for unexpected failures. When a rule can be broken in several ways, the message says which one and what to fix. `device_exists` and `manual_in_use` also return the device already registered. No error reveals the location of the manuals folder nor whether a file outside it exists.
 
-A rejected registration is rejected as a whole, and the client is told every reason at once, so it can fix everything in one go.
-
-In every criterion below, "rejected" means: a tool error (`isError`) with the errors listed, nothing from the registration is in the inventory or in the manuals index (a complete rollback), no file outside the manuals folder is read, the devices and manuals registered before are unchanged, and a warning with the reason is logged.
+In every criterion below, "rejected" means: the registration is rejected as a whole, as a tool error (`isError`) with the errors listed, and the client is told every reason at once, so it can fix everything in one go. Nothing from the registration is in the inventory or in the manuals index (a complete rollback), no file outside the manuals folder is read, the devices and manuals registered before are unchanged, and a warning with the reason is logged.
 
 **Acceptance criteria**
 
 | ID | Name | Given | When | Then |
 |---|---|---|---|---|
-| UC-02.AC1 | Device already registered | A device is registered with brand "Samsung" and model "QE55Q60" | The client registers another device with the same brand and model, even with a different manual | Rejected, with a `device_exists` error that returns the device already registered, with all its information |
+| UC-02.AC1 | Device already registered | A device is registered | The client registers another device with the same brand and model, even with a different manual | Rejected, with a `device_exists` error that returns the device already registered, with all its information |
 | UC-02.AC2 | Same device written differently | The same device is registered | The client registers brand "samsung" and model " qe55q60 ", or, for a registered `Philips Hue`, brand "PHILIPS" and model "hue" | Rejected, with a `device_exists` error that returns the device already registered, with all its information |
 | UC-02.AC3 | Registering twice | A valid registration has succeeded | The same registration is sent again | The second one is rejected as in UC-02.AC1, and the inventory has only one device |
 | UC-02.AC4 | Required fields missing | | The client does not provide all the required fields: brand and model (e.g. an empty brand, a brand with no valid character left once normalized, or a model made only of spaces) | Rejected, with an `invalid_fields` error whose message lists the fields that are missing |
@@ -208,7 +206,7 @@ The client gives enough information to single out a device, and the device is de
 
 The device is not deleted when the information the client gives does not single out one device, or when something fails while deleting. Either way the client is told what happened and what to do next.
 
-In every criterion below, "fails" means: a tool error (`isError`) with the errors listed, nothing changes (the inventory and the manuals index are as they were, with every device and its content still in them), and the outcome is logged: a warning when the information is not valid, an error when something fails.
+In every criterion below, "fails" means: a tool error (`isError`) with its `error`, nothing changes (the inventory and the manuals index are as they were, with every device and its content still in them), and the outcome is logged: a warning when the information is not valid, an error when something fails.
 
 **Acceptance criteria**
 
@@ -393,7 +391,7 @@ The client gives a new list of manuals for a registered device. The inventory re
 | UC-11.AC6 | Add manuals to a device without any | A device is registered without manuals, and a manual exists in the manuals folder | The client sends a list with that manual | The record lists it, and its chunks are in the manuals index with the `device_id` of the device |
 | UC-11.AC7 | Manual in a subfolder | `shelly/dimmer_2_guide.pdf` exists in the manuals folder | The client adds that relative path | The record has that manual with its relative path, and it is indexed |
 | UC-11.AC8 | Data and manuals together | A device is registered | The client changes its color and its manuals in the same call | Both changes are applied together: the record has the new color and the new list, and the manuals index is in line with it |
-| UC-11.AC9 | Manual freed by another device | A manual belongs to device A | The client first removes it from device A and then adds it to device B | Both calls succeed. The chunks of the manual now carry the `device_id` of device B only |
+| UC-11.AC9 | Manual freed by another device | A manual belonged to device A, and the client has removed it from device A | The client adds it to device B | Success. The chunks of the manual carry the `device_id` of device B only |
 | UC-11.AC10 | Manual whose file is gone | A device is registered with a manual, and the file was later removed from the manuals folder | The client changes another field of the device, or sends a list without that manual | Success. The change is applied. If the manual stays in the list, it stays in the record with its chunks; if it is removed, it leaves the record and the manuals index |
 | UC-11.AC11 | Manual repeated | A device is registered | The client sends a list that has the same manual more than once, or written in different ways that lead to the same file | The record lists the manual once, and its content is indexed once (or stays as it was, if the device already had it) |
 
@@ -401,12 +399,12 @@ The client gives a new list of manuals for a registered device. The inventory re
 
 The update is rejected, as a whole, when any of these rules is broken. The client is told every reason at once, except `device_not_found`, which comes alone.
 
-- The device exists (`device_not_found`).
-- There is something to change, and it is valid (`invalid_fields`).
-- Every manual new for the device is allowed and exists (`manual_not_allowed`, `manual_not_found`), with the same rules as in `register_device`: nothing outside the manuals folder is read or revealed. The manuals the device already has are not checked again.
-- Every manual new for the device can be read (`manual_unreadable`), as in `register_device`.
-- The device does not become another registered device (`device_exists`).
-- Every manual that is new for the device is not used by another one (`manual_in_use`).
+1. The device exists (`device_not_found`).
+2. There is something to change, and it is valid (`invalid_fields`).
+3. Every manual new for the device is allowed and exists (`manual_not_allowed`, `manual_not_found`), with the same rules as in `register_device`: nothing outside the manuals folder is read or revealed. The manuals the device already has are not checked again.
+4. Every manual new for the device can be read (`manual_unreadable`), as in `register_device`.
+5. The device does not become another registered device (`device_exists`).
+6. Every manual that is new for the device is not used by another one (`manual_in_use`).
 
 `device_exists` and `manual_in_use` return the other device involved. Unexpected failures are `failed`.
 
