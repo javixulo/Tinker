@@ -16,7 +16,7 @@ RUN find /app/runtimes -mindepth 1 -maxdepth 1 ! -name linux-x64 ! -name linux-a
 # The embedding model (technical spec, section 7). Pinned to one revision of the Hugging Face repository and checked
 # against its SHA-256, so the image never gets a different model without a build failure. It is its own stage and comes
 # before the code, so the cache keeps it between builds.
-FROM --platform=$BUILDPLATFORM alpine:3.22 AS model
+FROM --platform=$BUILDPLATFORM alpine:3.24 AS model
 ARG MODEL_REVISION=5c38ec7c405ec4b44b94cc5a9bb96e735b38267a
 ARG MODEL_ONNX_SHA256=828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35
 ARG MODEL_VOCAB_SHA256=07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3
