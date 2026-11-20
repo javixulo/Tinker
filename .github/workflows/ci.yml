@@ -32,7 +32,7 @@ jobs:
       model_onnx_sha256: ${{ steps.model.outputs.onnx_sha256 }}
       model_vocab_sha256: ${{ steps.model.outputs.vocab_sha256 }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
@@ -138,7 +138,7 @@ jobs:
     steps:
       # The only job that checks out: WebApplicationFactory resolves the content root of the server project
       # (src/Tinker.Mcp) from the source tree.
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           sparse-checkout: src/Tinker.Mcp
 
@@ -231,7 +231,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Build the image
         run: docker build -t tinker-mcp:ci .
