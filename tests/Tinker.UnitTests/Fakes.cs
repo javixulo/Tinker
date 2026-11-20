@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Tinker.Core;
@@ -226,12 +227,24 @@ internal sealed class ListLogger<T> : ILogger<T>
 {
     public List<(LogLevel Level, string Message, Exception? Error)> Entries { get; } = [];
 
+    /// <summary>The trace each entry was written in (the OpenTelemetry logging bridge takes it from <c>Activity.Current</c>).</summary>
+    public List<ActivityTraceId> Traces { get; } = [];
+
     public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
     public bool IsEnabled(LogLevel logLevel) => true;
 
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
-        Entries.Add((logLevel, formatter(state, exception), exception));
+        Add(logLevel, formatter(state, exception), exception);
+
+    private void Add(LogLevel level, string message, Exception? error)
+    {
+        Entries.Add((level, message, error));
+        Traces.Add(Activity.Current?.TraceId ?? default);
+    }
+
+    public ActivityTraceId TraceOf(string startsWith) =>
+        Traces[Entries.FindIndex(e => e.Message.StartsWith(startsWith, StringComparison.Ordinal))];
 
     public bool Has(LogLevel level, string startsWith) =>
         Entries.Any(e => e.Level == level && e.Message.StartsWith(startsWith, StringComparison.Ordinal));

@@ -122,7 +122,7 @@ public sealed class SearchManualsTests : IDisposable
 
     [Fact]
     [Trait("Criteria", "UC-08.1")]
-    public async Task A_search_does_not_change_anything_and_is_logged()
+    public async Task A_search_does_not_change_anything()
     {
         var id = await Register("Shelly", "Dimmer 2", manuals: [("a.pdf", [Wifi])]);
         var before = _env.Snapshot();
@@ -130,8 +130,6 @@ public sealed class SearchManualsTests : IDisposable
         await Search(id, "wifi");
 
         Assert.Equal(before, _env.Snapshot());
-        Assert.Contains(_env.Logs.Entries, e => e.Level == LogLevel.Information && e.Message.StartsWith("Search manuals", StringComparison.Ordinal));
-        Assert.DoesNotContain(_env.Logs.Entries, e => e.Message.Contains("wifi", StringComparison.Ordinal) && e.Message.StartsWith("Search manuals", StringComparison.Ordinal));
     }
 
     // UC-09

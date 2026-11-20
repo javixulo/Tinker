@@ -12,7 +12,7 @@ namespace Tinker.Core.Registration;
 /// (reading, chunking and embedding the manuals) happens before the transaction opens, so the write lock is held
 /// briefly. The inventory and the manuals index are written in one transaction: a registration is all or nothing.
 /// </summary>
-public sealed partial class DeviceRegistrar(
+public sealed class DeviceRegistrar(
     IManualFiles manualFiles,
     IInventory inventory,
     IManualsIndex index,
@@ -24,10 +24,11 @@ public sealed partial class DeviceRegistrar(
     public async Task<RegistrationResult> RegisterAsync(Device? request, CancellationToken cancellationToken = default)
     {
         using var activity = Telemetry.Source.StartActivity("register_device");
+        activity?.SetTag(Telemetry.DeviceBrand, request?.Brand);
+        activity?.SetTag(Telemetry.DeviceModel, request?.Model);
         RegistrationResult result;
         try
         {
-            LogRequested(request?.Brand, request?.Model);
             result = await RegisterCoreAsync(request, activity, cancellationToken);
         }
         catch (OperationCanceledException)
@@ -39,15 +40,14 @@ public sealed partial class DeviceRegistrar(
             // Nothing is left half done: everything written was inside the transaction, which was rolled back.
             LogFailed(error);
             result = RegistrationResult.Failure(new DeviceError(ErrorCodes.Failed, Messages.Failed("Registering the device")));
-            activity?.SetStatus(ActivityStatusCode.Error);
+            activity.Fail(error);
             activity?.AddEvent(new ActivityEvent("rolled_back"));
         }
 
-        activity?.SetTag("tinker.ok", result.Ok);
-        activity?.SetTag("tinker.error_codes", string.Join(',', result.Errors.Select(e => e.Code)));
+        activity.SetErrorTypes(result.Errors.Select(e => e.Code));
         if (result.Device?.DeviceId is { } id)
         {
-            activity?.SetTag("tinker.device_id", id);
+            activity?.SetTag(Telemetry.DeviceId, id);
         }
 
         return result;
@@ -186,7 +186,7 @@ public sealed partial class DeviceRegistrar(
                 },
                 cancellationToken);
             activity?.AddEvent(new ActivityEvent("committed"));
-            LogCompleted(stored.DeviceId, stored.Manuals!.Count, chunks.Count);
+            LogCompleted(stored, chunks.Count);
             return RegistrationResult.Success(stored);
         }
         catch (InventoryConflictException conflict)
@@ -234,18 +234,19 @@ public sealed partial class DeviceRegistrar(
 
     private static string? NormalizedOrNull(string? text, Func<string?, string> normalize) => TextKeys.IsBlank(text) ? null : normalize(text);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Registration requested: {Brand} {Model}")]
-    private partial void LogRequested(string? brand, string? model);
+    // Plain calls instead of [LoggerMessage]: the dotted names of the shared backend (`device.id`) are not valid C# identifiers, and the analyzer wants PascalCase.
+#pragma warning disable CA1848, CA1873, CA1727
+    private void LogCompleted(Device stored, int chunks) =>
+        logger.LogInformation("Device {device.id} registered: {device.brand} {device.model} with {manuals.count} manuals and {chunks.count} chunks",
+            stored.DeviceId, stored.Brand, stored.Model, stored.Manuals!.Count, chunks);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Registration completed: device {DeviceId} with {Manuals} manuals and {Chunks} chunks")]
-    private partial void LogCompleted(long? deviceId, int manuals, int chunks);
+    private void LogRejected(string code, string message) =>
+        logger.LogWarning("Registration rejected with {error.type}: {error.message}", code, message);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Registration rejected [{Code}]: {Message}")]
-    private partial void LogRejected(string code, string message);
+    private void LogNoText(string? manual) =>
+        logger.LogWarning("Manual {manual.path} had no extractable text and was not indexed", manual);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "No text could be extracted from the manual {Manual}: nothing to index")]
-    private partial void LogNoText(string? manual);
-
-    [LoggerMessage(Level = LogLevel.Error, Message = "Registering the device failed")]
-    private partial void LogFailed(Exception error);
+    private void LogFailed(Exception error) =>
+        logger.LogError(error, "Registering the device failed");
+#pragma warning restore CA1848, CA1873, CA1727
 }

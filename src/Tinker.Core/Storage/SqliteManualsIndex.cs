@@ -71,6 +71,7 @@ public sealed class SqliteManualsIndex(SqliteDatabase database, IEmbeddingGenera
 
     public async Task<IReadOnlyList<Chunk>> SearchAsync(long deviceId, string queryText, int count, CancellationToken cancellationToken = default)
     {
+        using var activity = Telemetry.Source.StartActivity("search_index");
         // Embed first, outside any database access: the cosine similarity is computed in C# over the chunks of this device only.
         var generated = await embeddings.GenerateAsync([queryText], cancellationToken: cancellationToken);
         var query = generated[0].Vector.ToArray();

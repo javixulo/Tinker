@@ -75,7 +75,7 @@ public sealed class DeleteDeviceTests : IDisposable
         Assert.Equal(0, _env.CountRows("device_urls", 2));
         Assert.True(File.Exists(Path.Combine(_env.ManualsPath, "b.pdf")), "the manual files belong to the user");
         Assert.Equal(othersBefore, Others(1, 3));
-        Assert.Contains(_env.Logs.Entries, e => e.Level == LogLevel.Information && e.Message.StartsWith("Deletion completed", StringComparison.Ordinal));
+        Assert.Contains(_env.Logs.Entries, e => e.Level == LogLevel.Information && e.Message.StartsWith("Device 2 deleted", StringComparison.Ordinal));
     }
 
     [Fact]

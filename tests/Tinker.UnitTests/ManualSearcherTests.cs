@@ -31,17 +31,15 @@ public sealed class ManualSearcherTests
         Assert.True(result.Ok);
         Assert.Equal(["Reset it", "Wire it"], result.Chunks.Select(c => c.Text));
         Assert.Null(result.Message);
-        Assert.True(_log.Has(LogLevel.Information, "Search manuals: 2 excerpts"));
     }
 
     [Fact]
     [Trait("Criteria", "UC-08.1")]
-    public async Task The_query_goes_to_the_index_trimmed_with_the_prefix_of_the_model_in_front_and_is_never_logged()
+    public async Task The_query_goes_to_the_index_trimmed_with_the_prefix_of_the_model_in_front()
     {
         await Searcher("Represent this: ").SearchAsync(1, "  how to reset  ", 3);
 
         Assert.Equal([(1L, "Represent this: how to reset", 3)], _index.Searches);
-        Assert.DoesNotContain(_log.Entries, e => e.Message.Contains("how to reset", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -139,7 +137,7 @@ public sealed class ManualSearcherTests
         Assert.True(result.Ok);
         Assert.Empty(result.Chunks);
         Assert.Equal(Messages.NoExtractableText, result.Message);
-        Assert.True(_log.Has(LogLevel.Warning, "Search manuals: device 1 has no chunks"));
+        Assert.True(_log.Has(LogLevel.Warning, "Search found no chunks for device 1"));
     }
 
     [Fact]

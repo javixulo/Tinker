@@ -11,7 +11,7 @@ namespace Tinker.Core.Removal;
 /// The device is matched exactly as in <c>find_devices</c>. The inventory and the manuals index are written in one
 /// transaction: a deletion is all or nothing. The manual files are never touched.
 /// </summary>
-public sealed partial class DeviceRemover(
+public sealed class DeviceRemover(
     IInventory inventory,
     IManualsIndex index,
     ITransactionRunner transactions,
@@ -34,19 +34,18 @@ public sealed partial class DeviceRemover(
             // Everything written was inside the transaction, which was rolled back: the device is still there.
             LogFailed(error);
             result = DeletionResult.Failure(new DeviceError(ErrorCodes.Failed, Messages.Failed("Deleting the device")));
-            activity?.SetStatus(ActivityStatusCode.Error);
+            activity.Fail(error);
             activity?.AddEvent(new ActivityEvent("rolled_back"));
         }
 
-        activity?.SetTag("tinker.ok", result.Ok);
         if (result.Error is { } failure)
         {
-            activity?.SetTag("tinker.error_codes", failure.Code);
+            activity.SetErrorTypes([failure.Code]);
         }
 
         if (result.Device?.DeviceId is { } id)
         {
-            activity?.SetTag("tinker.device_id", id);
+            activity?.SetTag(Telemetry.DeviceId, id);
         }
 
         return result;
@@ -97,12 +96,16 @@ public sealed partial class DeviceRemover(
         return DeletionResult.Failure(new DeviceError(code, message, Devices: devices));
     }
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Deletion completed: device {DeviceId} ({Brand} {Model}) and its chunks")]
-    private partial void LogCompleted(long? deviceId, string? brand, string? model);
+    // Plain calls instead of [LoggerMessage]: the dotted names of the shared backend (`device.id`) are not valid C# identifiers, and the analyzer wants PascalCase.
+#pragma warning disable CA1848, CA1873, CA1727
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Deletion rejected [{Code}]: {Message}")]
-    private partial void LogRejected(string code, string message);
+    private void LogCompleted(long? deviceId, string? brand, string? model) =>
+        logger.LogInformation("Device {device.id} deleted: {device.brand} {device.model} and its chunks", deviceId, brand, model);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Deleting the device failed")]
-    private partial void LogFailed(Exception error);
+    private void LogRejected(string code, string message) =>
+        logger.LogWarning("Deletion rejected with {error.type}: {error.message}", code, message);
+
+    private void LogFailed(Exception error) =>
+        logger.LogError(error, "Deleting the device failed");
+#pragma warning restore CA1848, CA1873, CA1727
 }

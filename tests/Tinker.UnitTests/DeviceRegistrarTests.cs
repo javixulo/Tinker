@@ -44,8 +44,7 @@ public sealed class DeviceRegistrarTests
         Assert.Equal(1, result.Device!.DeviceId);
         Assert.Equal(1, _transactions.Committed);
         Assert.Equal(1L, Assert.Single(_index.Added).DeviceId);
-        Assert.True(_log.Has(LogLevel.Information, "Registration requested"));
-        Assert.True(_log.Has(LogLevel.Information, "Registration completed"));
+        Assert.True(_log.Has(LogLevel.Information, "Device 1 registered"));
     }
 
     [Fact]
@@ -123,7 +122,7 @@ public sealed class DeviceRegistrarTests
         var error = Assert.Single(result.Errors);
         Assert.Equal(ErrorCodes.InvalidFields, error.Code);
         Assert.Contains(field, error.Message);
-        Assert.True(_log.Has(LogLevel.Warning, "Registration rejected [invalid_fields]"));
+        Assert.True(_log.Has(LogLevel.Warning, "Registration rejected with invalid_fields"));
     }
 
     [Fact]

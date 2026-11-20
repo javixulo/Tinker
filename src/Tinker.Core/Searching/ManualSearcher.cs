@@ -8,9 +8,9 @@ namespace Tinker.Core.Searching;
 /// <summary>
 /// UC-08 and UC-09: searches the manuals of one device by meaning. Validates the arguments, checks that the device
 /// exists and asks the index, which only ever reads the chunks of that device. <paramref name="queryPrefix"/> is what
-/// the embedding model wants in front of a query (technical spec, section 7); the query text itself is never logged.
+/// the embedding model wants in front of a query (technical spec, section 7); the query text is recorded as a span attribute.
 /// </summary>
-public sealed partial class ManualSearcher(
+public sealed class ManualSearcher(
     IInventory inventory,
     IManualsIndex index,
     ILogger<ManualSearcher> logger,
@@ -21,7 +21,8 @@ public sealed partial class ManualSearcher(
     public async Task<SearchResult> SearchAsync(long? deviceId, string? query, int? nResults, CancellationToken cancellationToken = default)
     {
         using var activity = Telemetry.Source.StartActivity("search_manuals");
-        activity?.SetTag("tinker.device_id", deviceId);
+        activity?.SetTag(Telemetry.DeviceId, deviceId);
+        activity?.SetTag(Telemetry.SearchQuery, query);
         SearchResult result;
         try
         {
@@ -35,14 +36,13 @@ public sealed partial class ManualSearcher(
         {
             LogFailed(error);
             result = SearchResult.Failure(new DeviceError(ErrorCodes.Failed, Messages.Failed("Searching the manuals")));
-            activity?.SetStatus(ActivityStatusCode.Error);
+            activity.Fail(error);
         }
 
-        activity?.SetTag("tinker.ok", result.Ok);
-        activity?.SetTag("tinker.matches", result.Chunks.Count);
+        activity?.SetTag(Telemetry.Matches, result.Chunks.Count);
         if (result.Error is { } failure)
         {
-            activity?.SetTag("tinker.error_codes", failure.Code);
+            activity.SetErrorTypes([failure.Code]);
         }
 
         return result;
@@ -89,7 +89,6 @@ public sealed partial class ManualSearcher(
         var chunks = await index.SearchAsync(id, queryPrefix + query!.Trim(), nResults ?? DefaultResults, cancellationToken);
         if (chunks.Count > 0)
         {
-            LogFound(id, chunks.Count);
             return SearchResult.Found(chunks);
         }
 
@@ -113,18 +112,19 @@ public sealed partial class ManualSearcher(
         return SearchResult.Failure(new DeviceError(ErrorCodes.DeviceNotFound, message));
     }
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Search manuals: {Chunks} excerpts found for device {DeviceId}")]
-    private partial void LogFound(long deviceId, int chunks);
+    // Plain calls instead of [LoggerMessage]: the dotted names of the shared backend (`device.id`) are not valid C# identifiers, and the analyzer wants PascalCase.
+#pragma warning disable CA1848, CA1873, CA1727
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Search manuals: device {DeviceId} has no chunks, its manuals have no extractable text")]
-    private partial void LogNoText(long deviceId);
+    private void LogNoText(long deviceId) =>
+        logger.LogWarning("Search found no chunks for device {device.id} because its manuals had no extractable text", deviceId);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Search manuals: device {DeviceId} has no manuals")]
-    private partial void LogNoManuals(long deviceId);
+    private void LogNoManuals(long deviceId) =>
+        logger.LogWarning("Search found nothing because device {device.id} has no manuals", deviceId);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Search manuals rejected [{Code}]: {Message}")]
-    private partial void LogRejected(string code, string message);
+    private void LogRejected(string code, string message) =>
+        logger.LogWarning("Search rejected with {error.type}: {error.message}", code, message);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Searching the manuals failed")]
-    private partial void LogFailed(Exception error);
+    private void LogFailed(Exception error) =>
+        logger.LogError(error, "Searching the manuals failed");
+#pragma warning restore CA1848, CA1873, CA1727
 }

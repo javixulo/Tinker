@@ -13,6 +13,7 @@ public static class ManualChunks
         Action<string?> onNoText,
         CancellationToken cancellationToken)
     {
+        using var activity = Telemetry.Source.StartActivity("embed_manuals");
         var chunks = new List<IndexedChunk>();
         foreach (var (manual, pages) in manuals)
         {
@@ -41,6 +42,7 @@ public static class ManualChunks
             }
         }
 
+        activity?.SetTag("chunks.count", chunks.Count);
         return chunks;
     }
 }

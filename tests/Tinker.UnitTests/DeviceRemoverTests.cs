@@ -49,7 +49,7 @@ public sealed class DeviceRemoverTests
         Assert.Equal([2L], _index.DeletedByDevice);
         Assert.Equal(1, _transactions.Committed);
         Assert.Equal([1L, 3L], _inventory.Devices.Select(d => d.DeviceId!.Value));
-        Assert.True(_log.Has(LogLevel.Information, "Deletion completed"));
+        Assert.True(_log.Has(LogLevel.Information, "Device 2 deleted"));
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public sealed class DeviceRemoverTests
 
         AssertFails(result, ErrorCodes.InvalidFields);
         AssertNothingChanged();
-        Assert.True(_log.Has(LogLevel.Warning, "Deletion rejected"));
+        Assert.True(_log.Has(LogLevel.Warning, "Deletion rejected with"));
     }
 
     [Fact]

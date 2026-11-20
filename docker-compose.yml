@@ -14,6 +14,9 @@ services:
       # OpenTelemetry (Seq accepts OTLP over HTTP). Leave empty to export nothing; logs still go to `docker logs`.
       OTEL_SERVICE_NAME: tinker-mcp
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      # Seq only accepts HTTP: the SDK default (gRPC) would fail silently. Change it only if the backend changes.
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-http/protobuf}
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=${TINKER_ENVIRONMENT:-production}
     volumes:
       # Database: a bind mount on a LOCAL disk of the host (SQLite locking is not reliable over NFS or SMB).
       - ${TINKER_DATA:-./data}:/data

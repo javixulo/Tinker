@@ -16,6 +16,7 @@ services:
       # Seq only speaks OTLP over HTTP; the SDK appends /v1/logs and /v1/traces to the endpoint.
       OTEL_SERVICE_NAME: tinker-sample
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=sample
       OTEL_EXPORTER_OTLP_ENDPOINT: http://seq:5341/ingest/otlp
       # Uncomment to use no model at all (matches by shared words): faster to start, only for quick checks.
       # Tinker__EmbeddingModel: hash

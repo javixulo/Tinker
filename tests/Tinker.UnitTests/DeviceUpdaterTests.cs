@@ -57,7 +57,7 @@ public sealed class DeviceUpdaterTests
         Assert.Equal("Kitchen", result.Device!.Location);
         Assert.Equal(before with { Location = "Kitchen" }, result.Device);
         Assert.Equal(1, _transactions.Committed);
-        Assert.True(_log.Has(LogLevel.Information, "Update completed"));
+        Assert.True(_log.Has(LogLevel.Information, "Device 1 updated"));
     }
 
     [Fact]
@@ -134,7 +134,7 @@ public sealed class DeviceUpdaterTests
         Assert.Equal(0, _inventory.Updates);
         Assert.Equal(0, _transactions.Committed);
         Assert.Empty(_index.Added);
-        Assert.True(_log.Has(LogLevel.Information, "Update completed: device 1 already had these values"));
+        Assert.True(_log.Has(LogLevel.Information, "Device 1 update changed nothing"));
     }
 
     [Fact]

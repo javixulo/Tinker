@@ -62,6 +62,7 @@ public sealed class SqliteDatabase : ITransactionRunner
             return await work();
         }
 
+        using var activity = Telemetry.Source.StartActivity("run_transaction");
         await using var connection = Open();
         await using var transaction = (SqliteTransaction)await connection.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
         _ambient.Value = new Ambient(connection, transaction);
@@ -70,6 +71,11 @@ public sealed class SqliteDatabase : ITransactionRunner
             var result = await work();
             await transaction.CommitAsync(cancellationToken);
             return result;
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            activity.Fail(error);
+            throw;
         }
         finally
         {

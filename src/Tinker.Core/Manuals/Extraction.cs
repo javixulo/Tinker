@@ -33,6 +33,26 @@ public sealed class PdfPigTextExtractor : IManualTextExtractor
 {
     public Task<IReadOnlyList<string>> ExtractPagesAsync(string fullPath, CancellationToken cancellationToken = default)
     {
+        using var activity = Telemetry.Source.StartActivity("extract_manual");
+        try
+        {
+            return Extract(fullPath, cancellationToken);
+        }
+        catch (ManualUnreadableException)
+        {
+            // The file is at fault, not the server: an error type, but not a failed step.
+            activity?.SetTag(Telemetry.ErrorType, "manual_unreadable");
+            throw;
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            activity.Fail(error);
+            throw;
+        }
+    }
+
+    private static Task<IReadOnlyList<string>> Extract(string fullPath, CancellationToken cancellationToken)
+    {
         try
         {
             using var document = PdfDocument.Open(fullPath);

@@ -1,4 +1,5 @@
 using OpenTelemetry;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.AI;
@@ -26,7 +27,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Logging.AddConsole(options => options.LogToStandardErrorThreshold = LogLevel.Trace);
 
 var otlp = builder.Services.AddOpenTelemetry()
-    .ConfigureResource(resource => resource.AddService(builder.Configuration["OTEL_SERVICE_NAME"] ?? "tinker-mcp"))
+    // service.name and service.version here; deployment.environment.name comes from OTEL_RESOURCE_ATTRIBUTES (technical spec, section 3).
+    .ConfigureResource(resource => resource.AddService(
+        builder.Configuration["OTEL_SERVICE_NAME"] ?? "tinker-mcp",
+        serviceVersion: typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]))
     .WithTracing(tracing => tracing.AddSource(Telemetry.SourceName).AddAspNetCoreInstrumentation())
     .WithLogging();
 if (!string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
@@ -92,13 +96,17 @@ if (problems.Count > 0)
     var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
     foreach (var problem in problems)
     {
-#pragma warning disable CA1848, CA1873 // Runs once at startup.
-        logger.LogCritical("Startup check failed: {Problem}", problem);
+#pragma warning disable CA1848, CA1873, CA1727 // Runs once at startup.
+        logger.LogCritical("Startup check failed: {problem}", problem);
 #pragma warning restore CA1848, CA1873
     }
 
     return 1;
 }
+
+#pragma warning disable CA1848
+app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup").LogInformation("Startup checks passed");
+#pragma warning restore CA1848
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapMcp("/mcp");

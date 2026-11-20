@@ -13,7 +13,7 @@ namespace Tinker.Core.Updating;
 /// manuals given are compared with the current ones: only the new ones are checked, read and indexed, the removed ones
 /// lose their chunks and the kept ones are left alone. The heavy work happens before the transaction opens.
 /// </summary>
-public sealed partial class DeviceUpdater(
+public sealed class DeviceUpdater(
     IManualFiles manualFiles,
     IInventory inventory,
     IManualsIndex index,
@@ -25,11 +25,10 @@ public sealed partial class DeviceUpdater(
     public async Task<UpdateResult> UpdateAsync(long? deviceId, DeviceChanges? changes, CancellationToken cancellationToken = default)
     {
         using var activity = Telemetry.Source.StartActivity("update_device");
-        activity?.SetTag("tinker.device_id", deviceId);
+        activity?.SetTag(Telemetry.DeviceId, deviceId);
         UpdateResult result;
         try
         {
-            LogRequested(deviceId);
             result = await UpdateCoreAsync(deviceId, changes, activity, cancellationToken);
         }
         catch (OperationCanceledException)
@@ -41,12 +40,11 @@ public sealed partial class DeviceUpdater(
             // Everything written was inside the transaction, which was rolled back.
             LogFailed(error);
             result = UpdateResult.Failure(new DeviceError(ErrorCodes.Failed, Messages.Failed("Updating the device")));
-            activity?.SetStatus(ActivityStatusCode.Error);
+            activity.Fail(error);
             activity?.AddEvent(new ActivityEvent("rolled_back"));
         }
 
-        activity?.SetTag("tinker.ok", result.Ok);
-        activity?.SetTag("tinker.error_codes", string.Join(',', result.Errors.Select(e => e.Code)));
+        activity.SetErrorTypes(result.Errors.Select(e => e.Code));
         return result;
     }
 
@@ -300,21 +298,23 @@ public sealed partial class DeviceUpdater(
         return UpdateResult.Failure([.. errors]);
     }
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Update requested: device {DeviceId}")]
-    private partial void LogRequested(long? deviceId);
+    // Plain calls instead of [LoggerMessage]: the dotted names of the shared backend (`device.id`) are not valid C# identifiers, and the analyzer wants PascalCase.
+#pragma warning disable CA1848, CA1873, CA1727
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Update completed: device {DeviceId}, {Added} manuals added, {Removed} removed, {Chunks} chunks added")]
-    private partial void LogCompleted(long deviceId, int added, int removed, int chunks);
+    private void LogCompleted(long deviceId, int added, int removed, int chunks) =>
+        logger.LogInformation("Device {device.id} updated: {manuals.added} manuals added, {manuals.removed} removed and {chunks.count} chunks added",
+            deviceId, added, removed, chunks);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Update completed: device {DeviceId} already had these values, nothing was written")]
-    private partial void LogUnchanged(long deviceId);
+    private void LogUnchanged(long deviceId) =>
+        logger.LogInformation("Device {device.id} update changed nothing because it already had these values", deviceId);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Update rejected [{Code}]: {Message}")]
-    private partial void LogRejected(string code, string message);
+    private void LogRejected(string code, string message) =>
+        logger.LogWarning("Update rejected with {error.type}: {error.message}", code, message);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "No text could be extracted from the manual {Manual}: nothing to index")]
-    private partial void LogNoText(string? manual);
+    private void LogNoText(string? manual) =>
+        logger.LogWarning("Manual {manual.path} had no extractable text and was not indexed", manual);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Updating the device failed")]
-    private partial void LogFailed(Exception error);
+    private void LogFailed(Exception error) =>
+        logger.LogError(error, "Updating the device failed");
+#pragma warning restore CA1848, CA1873, CA1727
 }

@@ -120,7 +120,7 @@ public sealed class DeviceFinderTests
         Assert.Empty(result.Devices);
         Assert.Contains("brand: Nobody", result.Message);
         Assert.Contains("location: Salon", result.Message);
-        Assert.True(_log.Has(LogLevel.Warning, "Find devices: nothing found"));
+        Assert.True(_log.Has(LogLevel.Warning, "No device matched"));
     }
 
     [Fact]
