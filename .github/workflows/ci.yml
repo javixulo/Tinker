@@ -4,20 +4,49 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Run the slowest level (system tests) by hand on any branch, for example before merging a risky pull request.
+  workflow_dispatch:
+  # Every 15 days (the 1st and the 16th of each month; cron cannot express an exact interval). The pipeline depends on
+  # things the code does not control (Hugging Face, base images, NuGet): a run with no change catches an expired
+  # download, a moved dependency or a changed base image. It also runs the system tests.
+  schedule:
+    - cron: "0 5 1,16 * *"
 
 permissions:
   contents: read
+
+# A new push to a pull request stops the obsolete run. Runs on main and scheduled runs are never cancelled.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # One build. Its artifact is what the four test jobs run: they do not check out, restore or compile anything.
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      # The embedding model is pinned in the Dockerfile, the only place where its values are written. The model tests read
+      # them from here, so CI tests the model that the image ships.
+      model_revision: ${{ steps.model.outputs.revision }}
+      model_onnx_sha256: ${{ steps.model.outputs.onnx_sha256 }}
+      model_vocab_sha256: ${{ steps.model.outputs.vocab_sha256 }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           global-json-file: global.json
+
+      - name: Read the pinned model from the Dockerfile
+        id: model
+        run: |
+          value() { sed -n "s/^ARG $1=//p" Dockerfile | head -1; }
+          {
+            echo "revision=$(value MODEL_REVISION)"
+            echo "onnx_sha256=$(value MODEL_ONNX_SHA256)"
+            echo "vocab_sha256=$(value MODEL_VOCAB_SHA256)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build
         run: dotnet build -c Release
@@ -31,12 +60,12 @@ jobs:
           done
 
       # The test projects are self-contained executables: each bin/Release folder holds the tests, the code under test,
-      # its dependencies and the fixtures. Nothing else is needed to run them. A tar keeps the executable bits that
-      # upload-artifact would drop.
+      # its dependencies and the fixtures. With global.json (the SDK version) and the script that runs a level, nothing
+      # else is needed to run them. A tar keeps the executable bits that upload-artifact would drop.
       - name: Pack the test executables
-        run: tar -czf tests.tar tests/*/bin/Release
+        run: tar -czf tests.tar global.json scripts/ci-run-tests.sh tests/*/bin/Release
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: tests
           path: tests.tar
@@ -44,92 +73,125 @@ jobs:
 
   # Unit tests: pure logic, no disk, network or database.
   unit-tests:
+    name: Unit tests
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
-
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: tests
 
       - name: Unpack the test executables
         run: tar -xzf tests.tar
 
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          global-json-file: global.json
+
       - name: Test
-        run: ./tests/Tinker.UnitTests/bin/Release/net10.0/Tinker.UnitTests
+        run: bash scripts/ci-run-tests.sh Tinker.UnitTests
+
+      - name: Upload the test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-results-unit
+          path: test-results
+          retention-days: 7
 
   # Integration tests: the services with a real SQLite database, files and PDFs (embeddings are the hash generator).
   integration-tests:
+    name: Integration tests
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
-
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: tests
 
       - name: Unpack the test executables
         run: tar -xzf tests.tar
 
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          global-json-file: global.json
+
       - name: Test
-        run: ./tests/Tinker.IntegrationTests/bin/Release/net10.0/Tinker.IntegrationTests
+        run: bash scripts/ci-run-tests.sh Tinker.IntegrationTests
+
+      - name: Upload the test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-results-integration
+          path: test-results
+          retention-days: 7
 
   # Contract tests: the real server in process, talked to with an MCP client over HTTP.
   contract-tests:
+    name: Contract tests
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       # The only job that checks out: WebApplicationFactory resolves the content root of the server project
       # (src/Tinker.Mcp) from the source tree.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           sparse-checkout: src/Tinker.Mcp
 
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
-
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: tests
 
       - name: Unpack the test executables
         run: tar -xzf tests.tar
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          global-json-file: global.json
 
       - name: Test
-        run: ./tests/Tinker.ContractTests/bin/Release/net10.0/Tinker.ContractTests
+        run: bash scripts/ci-run-tests.sh Tinker.ContractTests
 
-  # Model tests: integration with the real embedding model (technical spec, section 8). Same pinned revision and checksums as the
-  # Dockerfile, so CI tests the model that the image ships. The files are cached between runs.
+      - name: Upload the test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-results-contract
+          path: test-results
+          retention-days: 7
+
+  # Model tests: integration with the real embedding model (technical spec, section 8). The revision and checksums come
+  # from the Dockerfile (through the outputs of `build`), so CI tests the model that the image ships. The files are cached
+  # between runs.
   model-tests:
+    name: Model tests
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
-      MODEL_REVISION: 5c38ec7c405ec4b44b94cc5a9bb96e735b38267a
-      MODEL_ONNX_SHA256: 828e1496d7fabb79cfa4dcd84fa38625c0d3d21da474a00f08db0f559940cf35
-      MODEL_VOCAB_SHA256: 07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3
+      MODEL_REVISION: ${{ needs.build.outputs.model_revision }}
+      MODEL_ONNX_SHA256: ${{ needs.build.outputs.model_onnx_sha256 }}
+      MODEL_VOCAB_SHA256: ${{ needs.build.outputs.model_vocab_sha256 }}
       TINKER_TEST_MODEL_PATH: ${{ github.workspace }}/models/bge-small-en-v1.5
     steps:
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
-
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: tests
 
       - name: Unpack the test executables
         run: tar -xzf tests.tar
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          global-json-file: global.json
 
       - name: Cache the embedding model
         id: model-cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: models/bge-small-en-v1.5
           key: bge-small-en-v1.5-${{ env.MODEL_REVISION }}
@@ -148,17 +210,28 @@ jobs:
           echo "${MODEL_VOCAB_SHA256}  models/bge-small-en-v1.5/vocab.txt" | sha256sum -c -
 
       - name: Test
-        run: ./tests/Tinker.ModelTests/bin/Release/net10.0/Tinker.ModelTests
+        run: bash scripts/ci-run-tests.sh Tinker.ModelTests
+
+      - name: Upload the test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-results-model
+          path: test-results
+          retention-days: 7
 
   # The Docker image is another artifact, with its own build (the Dockerfile compiles by itself and downloads the model),
   # that the jobs above never touch. It is built but not pushed anywhere. A smoke test checks that it starts, passes its
-  # startup validation and lists the tools; then the system tests run complete flows against it (only on pushes to main:
-  # they are the slowest). It needs `build` only for the system test executable.
+  # startup validation and lists the tools; then the system tests run complete flows against it. They are the slowest
+  # level, so they do not run on pull requests: they run on pushes to main, on the scheduled run and when launched by hand
+  # (workflow_dispatch, for example on a branch before merging). It needs `build` only for the system test executable.
   image:
+    name: Image and system tests
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Build the image
         run: docker build -t tinker-mcp:ci .
@@ -166,17 +239,53 @@ jobs:
       - name: Smoke test
         run: scripts/smoke-test.sh tinker-mcp:ci
 
-      - uses: actions/download-artifact@v4
-        if: github.event_name == 'push'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        if: github.event_name != 'pull_request'
         with:
           name: tests
 
       - name: Unpack the test executables
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         run: tar -xzf tests.tar
 
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        if: github.event_name != 'pull_request'
+        with:
+          global-json-file: global.json
+
       - name: System tests
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         env:
           TINKER_SYSTEM_IMAGE: tinker-mcp:ci
-        run: ./tests/Tinker.SystemTests/bin/Release/net10.0/Tinker.SystemTests
+        run: bash scripts/ci-run-tests.sh Tinker.SystemTests
+
+      - name: Upload the test results
+        if: always() && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: test-results-system
+          path: test-results
+          retention-days: 7
+          if-no-files-found: ignore
+
+  # The only check the branch protection of main must require. It depends on every job and fails unless all of them
+  # succeeded: a skipped or cancelled job is not a pass. Adding or renaming a job above means touching `needs` here, and
+  # nothing in the protection.
+  ci-ok:
+    name: CI result
+    if: always()
+    needs: [build, unit-tests, integration-tests, contract-tests, model-tests, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every job succeeded
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          if echo "$RESULTS" | jq -e 'all(.[]; .result == "success")' > /dev/null; then
+            echo "All jobs succeeded."
+          else
+            echo "::error title=CI::At least one job did not succeed (failed, cancelled or skipped). See the list above and open that job."
+            exit 1
+          fi
