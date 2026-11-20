@@ -28,7 +28,7 @@ RUN base="https://huggingface.co/BAAI/bge-small-en-v1.5/resolve/${MODEL_REVISION
  && echo "${MODEL_ONNX_SHA256}  model.onnx" | sha256sum -c - \
  && echo "${MODEL_VOCAB_SHA256}  vocab.txt" | sha256sum -c -
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0
+FROM mcr.microsoft.com/dotnet/aspnet:11.0
 # curl is only for the HEALTHCHECK: the runtime image has no HTTP client.
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
