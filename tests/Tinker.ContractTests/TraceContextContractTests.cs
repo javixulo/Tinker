@@ -62,18 +62,24 @@ public sealed class TraceContextContractTests : IAsyncLifetime
     [Fact]
     public async Task Without_traceparent_the_call_works_and_starts_its_own_trace()
     {
-        var result = await FindDevices();
+        // The listener is global and other contract tests call tools in parallel, so the span is found by a query only this test sends.
+        var query = "trace-test-" + Guid.NewGuid().ToString("N");
 
-        Assert.NotEqual(true, result.IsError);
-        var span = Assert.Single(_spans, s => s.OperationName == "find_devices");
+        var result = await Call("search_manuals", new Dictionary<string, object?> { ["device_id"] = 999, ["query"] = query });
+
+        Assert.NotNull(result.StructuredContent);
+        var span = Assert.Single(_spans, s => s.OperationName == "search_manuals" && (string?)s.GetTagItem("search.query") == query);
         Assert.NotEqual(default, span.TraceId);
     }
 
-    private async Task<ModelContextProtocol.Protocol.CallToolResult> FindDevices()
+    private Task<ModelContextProtocol.Protocol.CallToolResult> FindDevices() =>
+        Call("find_devices", new Dictionary<string, object?> { ["device"] = new { } });
+
+    private async Task<ModelContextProtocol.Protocol.CallToolResult> Call(string tool, Dictionary<string, object?> arguments)
     {
         var transport = new HttpClientTransport(
             new HttpClientTransportOptions { Endpoint = new Uri(_http.BaseAddress!, "/mcp") }, _http);
         await using var client = await McpClient.CreateAsync(transport, cancellationToken: TestContext.Current.CancellationToken);
-        return await client.CallToolAsync("find_devices", new Dictionary<string, object?> { ["device"] = new { } }, cancellationToken: TestContext.Current.CancellationToken);
+        return await client.CallToolAsync(tool, arguments, cancellationToken: TestContext.Current.CancellationToken);
     }
 }
