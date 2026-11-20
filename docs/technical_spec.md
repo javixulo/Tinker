@@ -29,6 +29,7 @@ tests/Tinker.ContractTests/     Contract tests through a real MCP client
 tests/Tinker.SystemTests/       System tests: complete flows against the Docker image (skipped without TINKER_SYSTEM_IMAGE)
 tests/fixtures/manuals/    Public PDF manuals used by the tests
 scripts/smoke-test.sh      Smoke test of the Docker image (section 8)
+tools/Traceability/        Console tool: checks the criteria IDs of the functional spec against the test markers (section 8)
 docs/                      Functional and technical specs
 ```
 
@@ -304,7 +305,7 @@ If the manuals become mixed (some English, some Spanish), a multilingual model i
 
 **Proposed.**
 
-- **Every acceptance criterion of the functional spec is covered by at least one automated test.** One test may cover several criteria, and one criterion may need several tests; what matters is that none is left uncovered. Each test says which criteria it covers (a trait or a comment), so coverage can be reviewed against the spec.
+- **Every acceptance criterion of the functional spec is covered by at least one automated test.** One test may cover several criteria, and one criterion may need several tests; what matters is that none is left uncovered. Each test says which criteria it covers with `[Trait("Criteria", "UC-03.AC1, UC-03.AC2")]`, using the IDs of the criteria tables in the functional spec (`UC-NN.ACn`), so coverage can be reviewed against the spec and checked by a tool: `dotnet run --project tools/Traceability` (from the repository root) fails when a marker names a criterion that is not in the spec, and warns about criteria that no test names (`--strict` makes that an error too). It is not part of the solution or of CI yet.
 - **Approach: a test pyramid, and each rule is tested at the lowest level that can show it.** Many fast unit tests, fewer integration tests, very few contract, model and system tests. A test goes up a level only when the lower one cannot prove the thing, never to repeat what a lower level already proves. The number of tests per level is a consequence of this, not a goal: tests are not added to fill a level, and a test that only repeats another one at a higher level is deleted.
 - **Where does a test go?** Ask in this order and stop at the first yes:
   1. Does it need the whole image, a restart or the real startup? **System.**

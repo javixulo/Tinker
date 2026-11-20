@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Checks that the acceptance criteria of the functional spec and the tests that cover them agree.
+       Target framework, nullable and warnings as errors come from the Directory.Build.props at the root. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+</Project>
