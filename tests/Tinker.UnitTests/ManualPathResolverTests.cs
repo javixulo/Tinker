@@ -12,7 +12,7 @@ public sealed class ManualPathResolverTests
     private readonly ManualPathResolver _resolver = new(Path.Combine(Path.GetTempPath(), "tinker-unit-no-such-folder"));
 
     [Theory]
-    [Trait("Criteria", "UC-02.7")]
+    [Trait("Criteria", "UC-02.AC7")]
     [InlineData("/etc/passwd")]
     [InlineData("\\windows\\system32")]
     [InlineData("C:\\docs\\guide.pdf")]
@@ -33,7 +33,7 @@ public sealed class ManualPathResolverTests
     }
 
     [Theory]
-    [Trait("Criteria", "UC-02.8")]
+    [Trait("Criteria", "UC-02.AC8")]
     [InlineData("../secret.pdf")]
     [InlineData("shelly/../secret.pdf")]
     [InlineData("shelly/../shelly/guide.pdf")]
@@ -42,7 +42,7 @@ public sealed class ManualPathResolverTests
         Assert.Equal(ManualRejection.ContainsDotDot, _resolver.Resolve(manual).Rejection);
 
     [Theory]
-    [Trait("Criteria", "UC-02.7")]
+    [Trait("Criteria", "UC-02.AC7")]
     [InlineData("")]
     [InlineData(".")]
     [InlineData("./")]
@@ -50,7 +50,7 @@ public sealed class ManualPathResolverTests
         Assert.Equal(ManualRejection.OutsideFolder, _resolver.Resolve(manual).Rejection);
 
     [Fact]
-    [Trait("Criteria", "UC-02.9")]
+    [Trait("Criteria", "UC-02.AC9")]
     public void The_answer_never_depends_on_whether_the_target_exists() =>
         Assert.Equal(_resolver.Resolve("/etc/passwd"), _resolver.Resolve("/no/such/file"));
 }

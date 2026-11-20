@@ -46,7 +46,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-10.1,3")]
+    [Trait("Criteria", "UC-10.AC1,3")]
     public async Task Changes_one_field_and_keeps_the_rest()
     {
         var before = Stored(1);
@@ -61,7 +61,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-10.2")]
+    [Trait("Criteria", "UC-10.AC2")]
     public async Task Changes_several_fields_and_a_list_replaces_the_previous_one()
     {
         var result = await _updater.UpdateAsync(1, new DeviceChanges
@@ -82,7 +82,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-10.4,5")]
+    [Trait("Criteria", "UC-10.AC4,5")]
     public async Task Changing_brand_and_model_normalizes_them_and_keeps_the_id_and_the_manuals()
     {
         var result = await _updater.UpdateAsync(1, new DeviceChanges { Brand = "philips hué", Model = " lct  015 " });
@@ -96,7 +96,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-10.6")]
+    [Trait("Criteria", "UC-10.AC6")]
     public async Task A_device_does_not_collide_with_itself()
     {
         var result = await _updater.UpdateAsync(1, new DeviceChanges { Brand = " shelly ", Model = "dimmer   2", Color = "Black" });
@@ -107,7 +107,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-10.7")]
+    [Trait("Criteria", "UC-10.AC7")]
     public async Task Optional_fields_can_be_emptied_and_absent_ones_are_kept()
     {
         var result = await _updater.UpdateAsync(1, new DeviceChanges { Color = "  ", Invoice = "", Urls = [], PurchaseDate = "" });
@@ -122,7 +122,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-10.8")]
+    [Trait("Criteria", "UC-10.AC8")]
     public async Task The_current_values_write_nothing()
     {
         var before = Stored(1);
@@ -138,7 +138,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-11.1,2,4")]
+    [Trait("Criteria", "UC-11.AC1,2,4")]
     public async Task Removing_a_manual_deletes_its_chunks_only_and_keeps_the_others_without_reading_them()
     {
         var result = await _updater.UpdateAsync(1, new DeviceChanges { Manuals = ["a.pdf"] });
@@ -150,7 +150,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-11.5")]
+    [Trait("Criteria", "UC-11.AC5")]
     public async Task An_empty_list_removes_every_manual()
     {
         var result = await _updater.UpdateAsync(1, new DeviceChanges { Manuals = [] });
@@ -160,7 +160,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-11.10")]
+    [Trait("Criteria", "UC-11.AC10")]
     public async Task A_manual_the_device_already_has_is_not_checked_again_so_a_missing_file_does_not_block_other_changes()
     {
         var result = await _updater.UpdateAsync(1, new DeviceChanges { Manuals = ["a.pdf", "b.pdf"], Color = "Red" });
@@ -170,7 +170,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-12.1")]
+    [Trait("Criteria", "UC-12.AC1")]
     public async Task A_device_that_does_not_exist_is_device_not_found()
     {
         var result = await _updater.UpdateAsync(99, new DeviceChanges { Color = "Red" });
@@ -180,7 +180,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Theory]
-    [Trait("Criteria", "UC-12.2,3")]
+    [Trait("Criteria", "UC-12.AC2,3")]
     [InlineData(null, "Color", "`device_id` is missing")]
     [InlineData(1L, null, "Nothing to change")]
     [InlineData(1L, "DeviceId", "`device_id` cannot be changed")]
@@ -212,7 +212,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-12.3")]
+    [Trait("Criteria", "UC-12.AC3")]
     public async Task Every_invalid_field_is_reported_at_once_and_the_device_is_not_looked_up()
     {
         var result = await _updater.UpdateAsync(null, new DeviceChanges { Status = "sold", PurchaseDate = "x" });
@@ -224,7 +224,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-12.1")]
+    [Trait("Criteria", "UC-12.AC1")]
     public async Task No_changes_at_all_are_rejected_as_nothing_to_change()
     {
         var result = await _updater.UpdateAsync(1, null);
@@ -234,7 +234,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-12.4")]
+    [Trait("Criteria", "UC-12.AC4")]
     public async Task A_brand_and_model_of_another_device_is_device_exists_and_returns_that_device()
     {
         var result = await _updater.UpdateAsync(1, new DeviceChanges { Brand = "fibaro", Model = "double  smart" });
@@ -244,7 +244,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Theory]
-    [Trait("Criteria", "UC-12.6,7,9")]
+    [Trait("Criteria", "UC-12.AC6,7,9")]
     [InlineData("/etc/passwd", "outside the manuals folder")]
     [InlineData("a/../b.pdf", "`..`")]
     public async Task A_manual_that_is_not_allowed_rejects_the_whole_update(string manual, string reason)
@@ -257,7 +257,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-12.4,5,8")]
+    [Trait("Criteria", "UC-12.AC4,5,8")]
     public async Task Every_reason_comes_at_once()
     {
         var result = await _updater.UpdateAsync(1, new DeviceChanges { Brand = "Fibaro", Model = "Double Smart", Manuals = ["/etc/passwd"] });
@@ -266,7 +266,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-12.4")]
+    [Trait("Criteria", "UC-12.AC4")]
     public async Task When_two_updates_race_the_database_decides_and_the_loser_gets_device_exists()
     {
         var racer = new FakeInventory();
@@ -284,7 +284,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-12.1")]
+    [Trait("Criteria", "UC-12.AC1")]
     public async Task A_device_deleted_between_the_lookup_and_the_write_is_device_not_found()
     {
         var racer = new FakeInventory();
@@ -299,7 +299,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-12.10")]
+    [Trait("Criteria", "UC-12.AC10")]
     public async Task A_failure_while_writing_rolls_back_and_is_a_failed_error_that_hides_the_cause()
     {
         _inventory.UpdateFails = new InvalidOperationException("cannot write /secret/path");
@@ -314,7 +314,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-12.10")]
+    [Trait("Criteria", "UC-12.AC10")]
     public async Task A_failure_in_the_index_rolls_back_the_whole_update()
     {
         _index.Fails = new InvalidOperationException("index broken");
@@ -327,7 +327,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-11.3,6,7,8")]
+    [Trait("Criteria", "UC-11.AC3,6,7,8")]
     public async Task Adds_manuals_together_with_data_reading_only_the_new_ones()
     {
         _files.WithFile("shelly/new.pdf", "Press reset.", "Second page.");
@@ -345,7 +345,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-11.1,2,4")]
+    [Trait("Criteria", "UC-11.AC1,2,4")]
     public async Task Adds_and_removes_manuals_in_one_update_and_leaves_the_others_as_they_were()
     {
         _files.WithFile("new.pdf", "Fresh.");
@@ -358,7 +358,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-11.9")]
+    [Trait("Criteria", "UC-11.AC9")]
     public async Task A_manual_freed_by_one_device_can_be_added_to_another()
     {
         await _updater.UpdateAsync(1, new DeviceChanges { Manuals = ["b.pdf"] });
@@ -370,7 +370,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-11.10")]
+    [Trait("Criteria", "UC-11.AC10")]
     public async Task A_manual_whose_file_is_gone_does_not_block_other_changes_and_can_still_be_removed()
     {
         _files.Delete("a.pdf");
@@ -387,7 +387,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-11.11")]
+    [Trait("Criteria", "UC-11.AC11")]
     public async Task A_manual_repeated_counts_once()
     {
         _files.WithFile("shelly/a.pdf", "Alpha.");
@@ -399,7 +399,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-12.6,7,9")]
+    [Trait("Criteria", "UC-12.AC6,7,9")]
     public async Task A_missing_manual_rejects_the_whole_update()
     {
         var result = await _updater.UpdateAsync(1, new DeviceChanges { Color = "red", Manuals = ["a.pdf", "nope.pdf"] });
@@ -410,7 +410,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-12.6,7,9")]
+    [Trait("Criteria", "UC-12.AC6,7,9")]
     public async Task Every_manual_that_is_not_allowed_is_reported()
     {
         var result = await _updater.UpdateAsync(1, new DeviceChanges { Color = "red", Manuals = ["b.pdf", "../x.pdf", "/etc/passwd", "%2e%2e/s.pdf"] });
@@ -419,7 +419,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-12.8")]
+    [Trait("Criteria", "UC-12.AC8")]
     public async Task A_manual_that_belongs_to_another_device_is_manual_in_use_and_returns_that_device()
     {
         var result = await _updater.UpdateAsync(1, new DeviceChanges { Manuals = ["a.pdf", "c.pdf"] });
@@ -429,7 +429,7 @@ public sealed class DeviceUpdaterTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-12.11")]
+    [Trait("Criteria", "UC-12.AC11")]
     public async Task A_manual_that_cannot_be_read_rejects_the_whole_update()
     {
         _files.WithFile("good.pdf", "Alpha.").WithUnreadableFile("notes.txt", ManualUnreadableException.NotAPdf);

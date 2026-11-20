@@ -24,11 +24,11 @@ public sealed class DeviceMatcherTests
         DeviceMatcher.Given(wanted).All(c => c.Matches(stored));
 
     [Fact]
-    [Trait("Criteria", "UC-06.3")]
+    [Trait("Criteria", "UC-06.AC3")]
     public void Nothing_given_means_no_criteria() => Assert.Empty(DeviceMatcher.Given(new Device()));
 
     [Fact]
-    [Trait("Criteria", "UC-06.3")]
+    [Trait("Criteria", "UC-06.AC3")]
     public void Blank_texts_empty_lists_and_a_brand_with_no_valid_character_count_as_not_given()
     {
         var blank = new Device { Brand = "!!!", Model = "  ", Color = "", Location = " \t", Manuals = [" ", ""], Urls = [] };
@@ -37,7 +37,7 @@ public sealed class DeviceMatcherTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-05.1, UC-06.1")]
+    [Trait("Criteria", "UC-05.AC1, UC-06.AC1")]
     public void Texts_match_ignoring_case_accents_and_spaces()
     {
         Assert.True(Matches(new Device { Location = "  LIVING   rooM " }, Stored()));
@@ -45,17 +45,17 @@ public sealed class DeviceMatcherTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-05.3")]
+    [Trait("Criteria", "UC-05.AC3")]
     public void The_brand_is_cleaned_like_the_stored_one() =>
         Assert.True(Matches(new Device { Brand = "B.S.H." }, Stored() with { Brand = "BSH" }));
 
     [Fact]
-    [Trait("Criteria", "UC-06.2")]
+    [Trait("Criteria", "UC-06.AC2")]
     public void A_part_of_a_value_does_not_match() =>
         Assert.False(Matches(new Device { Location = "Living" }, Stored()));
 
     [Fact]
-    [Trait("Criteria", "UC-06.2")]
+    [Trait("Criteria", "UC-06.AC2")]
     public void Every_property_given_must_match()
     {
         Assert.True(Matches(new Device { Brand = "Philips Hue", Status = "active" }, Stored()));
@@ -63,7 +63,7 @@ public sealed class DeviceMatcherTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-06.2")]
+    [Trait("Criteria", "UC-06.AC2")]
     public void A_list_matches_when_the_device_has_every_item_given_in_any_order()
     {
         Assert.True(Matches(new Device { Manuals = ["HUE/B.pdf"] }, Stored()));
@@ -84,7 +84,7 @@ public sealed class DeviceMatcherTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-07.1, UC-04.2")]
+    [Trait("Criteria", "UC-07.AC1, UC-04.AC2")]
     public void The_listed_form_names_each_property_given()
     {
         var listed = DeviceMatcher.Given(new Device { Brand = "philips hué", Model = " x1 ", DeviceId = 3 }).Select(c => c.Listed);

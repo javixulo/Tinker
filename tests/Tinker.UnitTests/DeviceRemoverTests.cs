@@ -38,7 +38,7 @@ public sealed class DeviceRemoverTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-03.1")]
+    [Trait("Criteria", "UC-03.AC1")]
     public async Task Deletes_the_device_that_brand_and_model_single_out_with_its_chunks_in_one_transaction()
     {
         var result = await _remover.DeleteAsync(new Device { Brand = " SHELLY ", Model = "rgbw2" });
@@ -53,7 +53,7 @@ public sealed class DeviceRemoverTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-03.2")]
+    [Trait("Criteria", "UC-03.AC2")]
     public async Task Deletes_the_device_that_other_properties_single_out()
     {
         // Type TV is not enough for the others, and Salon is shared with device 1: only together they single out device 3.
@@ -65,7 +65,7 @@ public sealed class DeviceRemoverTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-03.1, UC-03.2")]
+    [Trait("Criteria", "UC-03.AC1, UC-03.AC2")]
     public async Task Deletes_by_device_id()
     {
         var result = await _remover.DeleteAsync(new Device { DeviceId = 1 });
@@ -75,7 +75,7 @@ public sealed class DeviceRemoverTests
     }
 
     [Theory]
-    [Trait("Criteria", "UC-04.1")]
+    [Trait("Criteria", "UC-04.AC1")]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Without_a_property_or_with_only_blank_ones_nothing_is_deleted(bool blank)
@@ -88,7 +88,7 @@ public sealed class DeviceRemoverTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-04.1")]
+    [Trait("Criteria", "UC-04.AC1")]
     public async Task Without_a_property_the_only_device_is_not_deleted_either()
     {
         var single = new FakeInventory();
@@ -101,7 +101,7 @@ public sealed class DeviceRemoverTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-04.2")]
+    [Trait("Criteria", "UC-04.AC2")]
     public async Task No_device_matching_is_device_not_found_and_lists_the_properties()
     {
         var result = await _remover.DeleteAsync(new Device { Brand = "Shelly", Model = "Nothing" });
@@ -113,7 +113,7 @@ public sealed class DeviceRemoverTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-04.3")]
+    [Trait("Criteria", "UC-04.AC3")]
     public async Task Several_matching_devices_are_ambiguous_and_nothing_is_deleted()
     {
         var result = await _remover.DeleteAsync(new Device { Brand = "Shelly" });
@@ -124,7 +124,7 @@ public sealed class DeviceRemoverTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-04.4")]
+    [Trait("Criteria", "UC-04.AC4")]
     public async Task A_device_that_disappears_between_the_lookup_and_the_delete_is_device_not_found()
     {
         var race = new RaceInventory(_inventory);
@@ -135,7 +135,7 @@ public sealed class DeviceRemoverTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-04.4")]
+    [Trait("Criteria", "UC-04.AC4")]
     public async Task A_failure_in_the_index_is_a_failed_error_inside_the_transaction_and_hides_the_cause()
     {
         _index.Fails = new InvalidOperationException("index file /secret/path is corrupt");
@@ -150,7 +150,7 @@ public sealed class DeviceRemoverTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-04.4")]
+    [Trait("Criteria", "UC-04.AC4")]
     public async Task An_unreadable_inventory_is_a_failed_error_and_deletes_nothing()
     {
         _inventory.ListFails = new InvalidOperationException("cannot read");

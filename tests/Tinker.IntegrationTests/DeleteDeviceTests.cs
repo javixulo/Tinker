@@ -57,7 +57,7 @@ public sealed class DeleteDeviceTests : IDisposable
     // UC-03
 
     [Fact]
-    [Trait("Criteria", "UC-03.1")]
+    [Trait("Criteria", "UC-03.AC1")]
     public async Task Deletes_the_device_that_brand_and_model_single_out()
     {
         var devices = await Inventory();
@@ -79,7 +79,7 @@ public sealed class DeleteDeviceTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-03.1, UC-03.2")]
+    [Trait("Criteria", "UC-03.AC1, UC-03.AC2")]
     public async Task Deleting_by_device_id_works_and_the_id_is_not_reused()
     {
         await Inventory();
@@ -95,7 +95,7 @@ public sealed class DeleteDeviceTests : IDisposable
     // UC-04
 
     [Fact]
-    [Trait("Criteria", "UC-04.4")]
+    [Trait("Criteria", "UC-04.AC4")]
     public async Task A_failure_while_deleting_rolls_everything_back()
     {
         using var env = new TestEnvironment(wrapIndex: index => new ThrowingDeleteIndex(index));

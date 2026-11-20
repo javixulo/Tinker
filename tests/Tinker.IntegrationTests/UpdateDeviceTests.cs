@@ -49,7 +49,7 @@ public sealed class UpdateDeviceTests : IDisposable
     // UC-10
 
     [Fact]
-    [Trait("Criteria", "UC-10.2")]
+    [Trait("Criteria", "UC-10.AC2")]
     public async Task Changes_several_fields_and_a_list_replaces_the_previous_one()
     {
         var a = await Registered("Shelly", "Dimmer 2");
@@ -62,7 +62,7 @@ public sealed class UpdateDeviceTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-10.4,5")]
+    [Trait("Criteria", "UC-10.AC4,5")]
     public async Task Changing_the_model_normalizes_it_and_keeps_the_id_and_the_chunks()
     {
         var a = await Registered("Shelly", "Dimmer 2", _env.Pdf("a.pdf", "Alpha."));
@@ -82,7 +82,7 @@ public sealed class UpdateDeviceTests : IDisposable
     // UC-11
 
     [Fact]
-    [Trait("Criteria", "UC-11.1,2,4")]
+    [Trait("Criteria", "UC-11.AC1,2,4")]
     public async Task Adds_and_removes_manuals_and_leaves_the_others_as_they_were()
     {
         var a = await Registered("Acme", "Box", _env.Pdf("a.pdf", "Alpha."), _env.Pdf("b.pdf", "Beta."));
@@ -103,7 +103,7 @@ public sealed class UpdateDeviceTests : IDisposable
     // UC-12
 
     [Fact]
-    [Trait("Criteria", "UC-12.4,5,8")]
+    [Trait("Criteria", "UC-12.AC4,5,8")]
     public async Task Collisions_return_the_other_device_and_every_reason_comes_at_once()
     {
         var a = await Registered("Acme", "Box", _env.Pdf("a.pdf", "Alpha."));
@@ -122,7 +122,7 @@ public sealed class UpdateDeviceTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-12.10")]
+    [Trait("Criteria", "UC-12.AC10")]
     public async Task A_failure_while_indexing_rolls_everything_back()
     {
         using var env = new TestEnvironment(wrapIndex: index => new ThrowingIndex(index));
@@ -140,7 +140,7 @@ public sealed class UpdateDeviceTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-12.4")]
+    [Trait("Criteria", "UC-12.AC4")]
     public async Task When_two_updates_race_the_database_decides()
     {
         RacyInventory racy = null!;

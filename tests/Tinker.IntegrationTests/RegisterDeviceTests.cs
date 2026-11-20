@@ -12,7 +12,7 @@ public sealed class RegisterDeviceTests : IDisposable
     public void Dispose() => _env.Dispose();
 
     [Fact]
-    [Trait("Criteria", "UC-01.1")]
+    [Trait("Criteria", "UC-01.AC1")]
     public async Task Registers_with_brand_and_model_only()
     {
         var result = await _env.Registrar.RegisterAsync(new Device { Brand = "Shelly", Model = "Dimmer 2" });
@@ -27,7 +27,7 @@ public sealed class RegisterDeviceTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-01.1")]
+    [Trait("Criteria", "UC-01.AC1")]
     public async Task Registers_with_the_required_fields()
     {
         var manual = _env.Fixture("shelly/dimmer_2_guide.pdf");
@@ -47,7 +47,7 @@ public sealed class RegisterDeviceTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-01.2")]
+    [Trait("Criteria", "UC-01.AC2")]
     public async Task Registers_with_optional_fields()
     {
         var manual = _env.Fixture("shelly/dimmer_2_guide.pdf");
@@ -81,7 +81,7 @@ public sealed class RegisterDeviceTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-01.3")]
+    [Trait("Criteria", "UC-01.AC3")]
     public async Task Registers_with_several_manuals()
     {
         var first = _env.Fixture("shelly/dimmer_2_guide.pdf");
@@ -94,7 +94,7 @@ public sealed class RegisterDeviceTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-01.4")]
+    [Trait("Criteria", "UC-01.AC4")]
     public async Task Keeps_the_relative_path_of_a_manual_in_a_subfolder()
     {
         _env.Fixture("shelly/dimmer_2_guide.pdf");
@@ -105,7 +105,7 @@ public sealed class RegisterDeviceTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-01.5")]
+    [Trait("Criteria", "UC-01.AC5")]
     public async Task Indexes_a_real_manual_in_chunks_that_never_cross_a_page()
     {
         var manual = _env.Fixture("shelly/dimmer_2_guide.pdf");
@@ -123,7 +123,7 @@ public sealed class RegisterDeviceTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-01.7")]
+    [Trait("Criteria", "UC-01.AC7")]
     public async Task Content_stays_with_its_own_device()
     {
         var first = await _env.Register("Acme", "One", _env.Pdf("one.pdf", "First device text."));
@@ -140,7 +140,7 @@ public sealed class RegisterDeviceTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-01.1")]
+    [Trait("Criteria", "UC-01.AC1")]
     public async Task A_device_id_is_never_reused_after_a_deletion()
     {
         var first = await _env.Register("Acme", "One", _env.Pdf("one.pdf", "Text."));

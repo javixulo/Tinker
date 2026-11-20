@@ -23,7 +23,7 @@ public sealed class ManualSearcherTests
     private ManualSearcher Searcher(string prefix = "") => new(_inventory, _index, _log, prefix);
 
     [Fact]
-    [Trait("Criteria", "UC-08.1")]
+    [Trait("Criteria", "UC-08.AC1")]
     public async Task Returns_the_excerpts_in_the_order_the_index_gives_them()
     {
         var result = await Searcher().SearchAsync(1, "how to reset", null);
@@ -34,7 +34,7 @@ public sealed class ManualSearcherTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-08.1")]
+    [Trait("Criteria", "UC-08.AC1")]
     public async Task The_query_goes_to_the_index_trimmed_with_the_prefix_of_the_model_in_front()
     {
         await Searcher("Represent this: ").SearchAsync(1, "  how to reset  ", 3);
@@ -43,7 +43,7 @@ public sealed class ManualSearcherTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-08.2")]
+    [Trait("Criteria", "UC-08.AC2")]
     public async Task The_search_is_always_for_the_device_given()
     {
         await Searcher().SearchAsync(1, "reset", null);
@@ -52,7 +52,7 @@ public sealed class ManualSearcherTests
     }
 
     [Theory]
-    [Trait("Criteria", "UC-08.3")]
+    [Trait("Criteria", "UC-08.AC3")]
     [InlineData(null, 5)]
     [InlineData(1, 1)]
     [InlineData(20, 20)]
@@ -64,7 +64,7 @@ public sealed class ManualSearcherTests
     }
 
     [Theory]
-    [Trait("Criteria", "UC-09.2")]
+    [Trait("Criteria", "UC-09.AC2")]
     [InlineData(null, "reset", null, "device_id")]
     [InlineData(1L, "  ", null, "query")]
     [InlineData(1L, null, null, "query")]
@@ -81,7 +81,7 @@ public sealed class ManualSearcherTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-09.2")]
+    [Trait("Criteria", "UC-09.AC2")]
     public async Task Every_invalid_argument_is_reported_at_once()
     {
         var result = await Searcher().SearchAsync(null, " ", 0);
@@ -92,7 +92,7 @@ public sealed class ManualSearcherTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-09.1")]
+    [Trait("Criteria", "UC-09.AC1")]
     public async Task A_device_that_does_not_exist_is_device_not_found()
     {
         var result = await Searcher().SearchAsync(99, "reset", null);
@@ -103,7 +103,7 @@ public sealed class ManualSearcherTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-09.1")]
+    [Trait("Criteria", "UC-09.AC1")]
     public async Task A_device_deleted_while_searching_is_device_not_found_and_not_no_text()
     {
         _index.Results = [];
@@ -115,7 +115,7 @@ public sealed class ManualSearcherTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-09.4")]
+    [Trait("Criteria", "UC-09.AC4")]
     public async Task A_device_without_manuals_gives_an_empty_list_and_says_so_without_asking_the_index()
     {
         var result = await Searcher().SearchAsync(2, "reset", null);
@@ -127,7 +127,7 @@ public sealed class ManualSearcherTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-09.3")]
+    [Trait("Criteria", "UC-09.AC3")]
     public async Task Manuals_without_text_give_an_empty_list_and_a_message_for_the_client()
     {
         _index.Results = [];
@@ -141,7 +141,7 @@ public sealed class ManualSearcherTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-09.4")]
+    [Trait("Criteria", "UC-09.AC4")]
     public async Task A_failure_in_the_index_is_a_failed_error_that_hides_the_cause()
     {
         _index.Fails = new InvalidOperationException("index /secret/path broken");
@@ -154,7 +154,7 @@ public sealed class ManualSearcherTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-09.4")]
+    [Trait("Criteria", "UC-09.AC4")]
     public async Task An_unreadable_inventory_is_a_failed_error()
     {
         _inventory.ListFails = new InvalidOperationException("cannot read");

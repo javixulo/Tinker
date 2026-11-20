@@ -41,7 +41,7 @@ public sealed class SearchManualsTests : IDisposable
     // UC-08
 
     [Fact]
-    [Trait("Criteria", "UC-08.1")]
+    [Trait("Criteria", "UC-08.AC1")]
     public async Task Returns_the_excerpts_that_best_match_with_where_each_one_comes_from()
     {
         var id = await Register("Shelly", "Dimmer 2", manuals:
@@ -68,7 +68,7 @@ public sealed class SearchManualsTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-08.1")]
+    [Trait("Criteria", "UC-08.AC1")]
     public async Task The_most_relevant_excerpt_comes_first_whatever_the_order_of_the_manual()
     {
         var id = await Register("Samsung", "WW90", manuals: [("a.pdf", [Warranty, Wifi, Filter])]);
@@ -81,7 +81,7 @@ public sealed class SearchManualsTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-08.2")]
+    [Trait("Criteria", "UC-08.AC2")]
     public async Task Only_the_excerpts_of_that_device_come_back_even_if_another_device_matches_better()
     {
         var wanted = await Register("Shelly", "Dimmer 2", manuals: [("a.pdf", [Filter, Warranty])]);
@@ -103,7 +103,7 @@ public sealed class SearchManualsTests : IDisposable
     }
 
     [Theory]
-    [Trait("Criteria", "UC-08.3")]
+    [Trait("Criteria", "UC-08.AC3")]
     [InlineData(null, 5)]
     [InlineData(2, 2)]
     [InlineData(1, 1)]
@@ -121,7 +121,7 @@ public sealed class SearchManualsTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-08.1")]
+    [Trait("Criteria", "UC-08.AC1")]
     public async Task A_search_does_not_change_anything()
     {
         var id = await Register("Shelly", "Dimmer 2", manuals: [("a.pdf", [Wifi])]);
@@ -135,7 +135,7 @@ public sealed class SearchManualsTests : IDisposable
     // UC-09
 
     [Fact]
-    [Trait("Criteria", "UC-09.1")]
+    [Trait("Criteria", "UC-09.AC1")]
     public async Task A_deleted_device_is_device_not_found_and_its_content_is_not_returned()
     {
         var id = await Register("Shelly", "Dimmer 2", manuals: [("a.pdf", [Wifi])]);
@@ -147,7 +147,7 @@ public sealed class SearchManualsTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-09.3")]
+    [Trait("Criteria", "UC-09.AC3")]
     public async Task Manuals_without_text_give_an_empty_list_and_a_message_for_the_client()
     {
         // A page with no text, like a scanned manual: it registers without error and produces no chunks.
@@ -167,7 +167,7 @@ public sealed class SearchManualsTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-09.3")]
+    [Trait("Criteria", "UC-09.AC3")]
     public async Task A_device_without_text_does_not_get_the_content_of_another()
     {
         var scanned = await Register("Shelly", "Dimmer 2", manuals: [("scan.pdf", [""])]);
@@ -181,7 +181,7 @@ public sealed class SearchManualsTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-09.4")]
+    [Trait("Criteria", "UC-09.AC5")]
     public async Task A_failure_of_the_embedding_model_is_a_failed_error()
     {
         // The index embeds the query: a generator that works to register and breaks when searching.
@@ -193,6 +193,9 @@ public sealed class SearchManualsTests : IDisposable
         var result = await env.Searcher.SearchAsync(id, "wifi", null);
 
         AssertFails(result, "failed");
+        Assert.Contains("Searching the manuals failed", result.Error!.Message, StringComparison.Ordinal);
+        Assert.Contains("not because of the request", result.Error.Message, StringComparison.Ordinal);
+        Assert.Contains("Tell the user instead of retrying", result.Error.Message, StringComparison.Ordinal);
         Assert.Contains(env.Logs.Entries, e => e.Level == LogLevel.Error);
     }
 }

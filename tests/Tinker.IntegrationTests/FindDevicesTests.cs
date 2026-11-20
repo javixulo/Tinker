@@ -58,7 +58,7 @@ public sealed class FindDevicesTests : IDisposable
     // UC-05
 
     [Fact]
-    [Trait("Criteria", "UC-05.1")]
+    [Trait("Criteria", "UC-05.AC1")]
     public async Task Finds_a_device_by_a_property_no_other_device_has()
     {
         var devices = await Inventory();
@@ -81,7 +81,7 @@ public sealed class FindDevicesTests : IDisposable
     // UC-07
 
     [Theory]
-    [Trait("Criteria", "UC-07.2")]
+    [Trait("Criteria", "UC-07.AC2")]
     [InlineData("Dimm")]
     [InlineData("imer 2")]
     [InlineData("Dimmer")]

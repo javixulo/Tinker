@@ -24,7 +24,7 @@ public sealed class DeviceFinderTests
     private static IEnumerable<long> Ids(FindDevicesResult result) => result.Devices.Select(d => d.DeviceId!.Value);
 
     [Fact]
-    [Trait("Criteria", "UC-05.1")]
+    [Trait("Criteria", "UC-05.AC1")]
     public async Task Finds_a_device_by_a_property_no_other_device_has()
     {
         var result = await _finder.FindAsync(new Device { Model = "rgbw2" });
@@ -35,7 +35,7 @@ public sealed class DeviceFinderTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-05.2")]
+    [Trait("Criteria", "UC-05.AC2")]
     public async Task Finds_a_device_by_a_combination_that_only_one_matches()
     {
         var result = await _finder.FindAsync(new Device { DeviceType = "Dimmer", Location = "Salon" });
@@ -44,7 +44,7 @@ public sealed class DeviceFinderTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-06.1")]
+    [Trait("Criteria", "UC-06.AC1")]
     public async Task Finds_every_device_that_shares_a_value_ordered_by_device_id()
     {
         var result = await _finder.FindAsync(new Device { Location = "Salon" });
@@ -53,7 +53,7 @@ public sealed class DeviceFinderTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-06.2")]
+    [Trait("Criteria", "UC-06.AC2")]
     public async Task Every_property_given_must_match()
     {
         var result = await _finder.FindAsync(new Device { Location = "Salon", Color = "Black", Brand = "Shelly" });
@@ -63,7 +63,7 @@ public sealed class DeviceFinderTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-06.2")]
+    [Trait("Criteria", "UC-06.AC2")]
     public async Task For_a_list_the_device_must_have_every_item_given()
     {
         Assert.Equal([1L], Ids(await _finder.FindAsync(new Device { Urls = ["https://x/a", "https://x/b"] })));
@@ -71,7 +71,7 @@ public sealed class DeviceFinderTests
     }
 
     [Theory]
-    [Trait("Criteria", "UC-06.3")]
+    [Trait("Criteria", "UC-06.AC3")]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Lists_every_device_when_no_property_or_only_blank_ones_are_given(bool blank)
@@ -84,7 +84,7 @@ public sealed class DeviceFinderTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-05.1, UC-06.1")]
+    [Trait("Criteria", "UC-05.AC1, UC-06.AC1")]
     public async Task Compares_in_lowercase_without_accents_and_ignoring_extra_spaces()
     {
         var result = await _finder.FindAsync(new Device { Location = "  HABITACION " });
@@ -93,14 +93,14 @@ public sealed class DeviceFinderTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-06.2")]
+    [Trait("Criteria", "UC-06.AC2")]
     public async Task The_whole_value_must_match()
     {
         Assert.Empty((await _finder.FindAsync(new Device { Location = "Sal" })).Devices);
     }
 
     [Fact]
-    [Trait("Criteria", "UC-05.3")]
+    [Trait("Criteria", "UC-05.AC3")]
     public async Task The_brand_is_cleaned_like_the_stored_one()
     {
         _inventory.Seed(new Device { Brand = "BSH", Model = "X1" });
@@ -111,7 +111,7 @@ public sealed class DeviceFinderTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-07.1")]
+    [Trait("Criteria", "UC-07.AC1")]
     public async Task No_match_is_ok_with_an_empty_list_and_a_message_that_lists_the_properties()
     {
         var result = await _finder.FindAsync(new Device { Brand = "Nobody", Location = "Salon" });
@@ -124,7 +124,7 @@ public sealed class DeviceFinderTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-07.3")]
+    [Trait("Criteria", "UC-07.AC3")]
     public async Task With_no_registered_devices_the_message_says_to_register_one()
     {
         var empty = new DeviceFinder(new FakeInventory(), _log);
@@ -137,7 +137,7 @@ public sealed class DeviceFinderTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-07.4")]
+    [Trait("Criteria", "UC-07.AC4")]
     public async Task An_unexpected_failure_is_a_failed_error_that_hides_the_cause_and_is_logged()
     {
         _inventory.ListFails = new InvalidOperationException("disk /secret/path is on fire");

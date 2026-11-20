@@ -34,7 +34,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-01.1")]
+    [Trait("Criteria", "UC-01.AC1")]
     public async Task Registers_with_brand_and_model_only_and_writes_inventory_and_index_in_one_transaction()
     {
         var result = await _registrar.RegisterAsync(new Device { Brand = "Shelly", Model = "Dimmer 2" });
@@ -48,7 +48,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-01.1")]
+    [Trait("Criteria", "UC-01.AC1")]
     public async Task A_device_id_given_by_the_client_is_ignored()
     {
         _inventory.Seed(new Device { Brand = "Other", Model = "X" });
@@ -59,7 +59,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-01.8")]
+    [Trait("Criteria", "UC-01.AC8")]
     public async Task Values_are_normalized()
     {
         var result = await _registrar.RegisterAsync(new Device
@@ -84,7 +84,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-01.2")]
+    [Trait("Criteria", "UC-01.AC2")]
     public async Task Blank_optional_fields_are_stored_as_not_given()
     {
         var result = await _registrar.RegisterAsync(new Device { Brand = "Shelly", Model = "X", DeviceType = " ", Color = "", Location = "\t", Invoice = " " });
@@ -97,7 +97,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Theory]
-    [Trait("Criteria", "UC-01.9")]
+    [Trait("Criteria", "UC-01.AC9")]
     [InlineData(null, "active")]
     [InlineData("  ", "active")]
     [InlineData(" archived ", "archived")]
@@ -109,7 +109,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Theory]
-    [Trait("Criteria", "UC-02.4")]
+    [Trait("Criteria", "UC-02.AC4")]
     [InlineData(null, "X", "brand")]
     [InlineData("  ", "X", "brand")]
     [InlineData("Shelly", null, "model")]
@@ -126,7 +126,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.4")]
+    [Trait("Criteria", "UC-02.AC4")]
     public async Task Rejects_no_device_at_all()
     {
         var result = await _registrar.RegisterAsync(null);
@@ -136,7 +136,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.4")]
+    [Trait("Criteria", "UC-02.AC4")]
     public async Task A_brand_with_no_valid_character_left_is_rejected()
     {
         var result = await _registrar.RegisterAsync(new Device { Brand = "***", Model = "X" });
@@ -146,7 +146,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.4")]
+    [Trait("Criteria", "UC-02.AC4")]
     public async Task Rejects_an_unknown_status()
     {
         var result = await _registrar.RegisterAsync(new Device { Brand = "Shelly", Model = "X", Status = "sold" });
@@ -156,11 +156,11 @@ public sealed class DeviceRegistrarTests
     }
 
     [Theory]
-    [Trait("Criteria", "UC-02.1")]
+    [Trait("Criteria", "UC-02.AC1")]
     [InlineData("Shelly", "dimmer 2")]
     [InlineData("  SHELLY ", " Dimmer   2 ")]
     [InlineData("shellý", "DIMMER 2")]
-    [Trait("Criteria", "UC-02.2")]
+    [Trait("Criteria", "UC-02.AC2")]
     public async Task Rejects_a_device_already_registered_even_written_differently_and_returns_it(string brand, string model)
     {
         var existing = _inventory.Seed(new Device { Brand = "Shelly", Model = "DIMMER 2" });
@@ -174,7 +174,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.2")]
+    [Trait("Criteria", "UC-02.AC2")]
     public async Task Other_characters_still_make_a_different_device()
     {
         _inventory.Seed(new Device { Brand = "Shelly", Model = "DIMMER2" });
@@ -185,7 +185,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Theory]
-    [Trait("Criteria", "UC-02.7")]
+    [Trait("Criteria", "UC-02.AC7")]
     [InlineData("/etc/passwd", "outside the manuals folder")]
     [InlineData("~/Documents/guide.pdf", "outside the manuals folder")]
     [InlineData("%2e%2e/secret.pdf", "outside the manuals folder")]
@@ -201,7 +201,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.4,5,6")]
+    [Trait("Criteria", "UC-02.AC4,5,6")]
     public async Task Tells_every_reason_at_once()
     {
         _inventory.Seed(new Device { Brand = "Shelly", Model = "X" });
@@ -215,7 +215,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.1,6")]
+    [Trait("Criteria", "UC-02.AC1,6")]
     public async Task When_two_registrations_race_the_database_decides_and_the_loser_gets_device_exists()
     {
         _inventory.Blind = true;
@@ -229,7 +229,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.11")]
+    [Trait("Criteria", "UC-02.AC11")]
     public async Task A_failure_while_indexing_rolls_back_and_is_a_failed_error_that_hides_the_cause()
     {
         _index.Fails = new InvalidOperationException("index /secret/path broken");
@@ -246,7 +246,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.11")]
+    [Trait("Criteria", "UC-02.AC11")]
     public async Task A_database_that_cannot_be_read_is_a_failed_error()
     {
         _inventory.InsertFails = new InvalidOperationException("cannot open");
@@ -257,7 +257,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-01.3, UC-01.5, UC-01.6")]
+    [Trait("Criteria", "UC-01.AC3, UC-01.AC5, UC-01.AC6")]
     public async Task Indexes_every_manual_as_chunks_with_device_manual_and_page_in_the_same_transaction()
     {
         _files.WithFile("a.pdf", "Press the reset button for ten seconds.", "The warranty lasts two years.").WithFile("sub/b.pdf", "Beta manual text.");
@@ -273,7 +273,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-01.5")]
+    [Trait("Criteria", "UC-01.AC5")]
     public async Task A_page_with_text_is_split_in_chunks_that_never_cross_the_maximum()
     {
         _files.WithFile("long.pdf", string.Join(' ', Enumerable.Range(0, 400).Select(i => "word" + i)));
@@ -287,7 +287,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-01.10")]
+    [Trait("Criteria", "UC-01.AC10")]
     public async Task A_manual_repeated_is_stored_and_read_once()
     {
         _files.WithFile("shelly/a.pdf", "Alpha.");
@@ -300,7 +300,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-01.5")]
+    [Trait("Criteria", "UC-01.AC5")]
     public async Task A_manual_with_no_text_registers_without_error_produces_no_chunks_and_is_logged()
     {
         _files.WithFile("scanned.pdf", "", "  ");
@@ -313,7 +313,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.5")]
+    [Trait("Criteria", "UC-02.AC5")]
     public async Task Rejects_manuals_that_do_not_exist_and_lists_all_of_them()
     {
         _files.WithFile("exists.pdf", "Alpha.");
@@ -328,7 +328,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.6")]
+    [Trait("Criteria", "UC-02.AC6")]
     public async Task Rejects_a_manual_that_belongs_to_another_device_and_returns_that_device()
     {
         _files.WithFile("shared.pdf", "Shared.").WithFile("own.pdf", "Own.");
@@ -349,7 +349,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.12")]
+    [Trait("Criteria", "UC-02.AC12")]
     public async Task Manuals_that_cannot_be_read_are_listed_with_their_reason_and_nothing_is_saved()
     {
         _files.WithFile("ok.pdf", "Alpha.")
@@ -368,7 +368,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.10")]
+    [Trait("Criteria", "UC-02.AC10")]
     public async Task One_invalid_manual_rejects_everything()
     {
         _files.WithFile("good.pdf", "Alpha.");
@@ -382,7 +382,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.11")]
+    [Trait("Criteria", "UC-02.AC11")]
     public async Task A_manual_that_fails_to_be_read_is_a_failed_error_and_leaves_nothing()
     {
         _files.WithBrokenReader("a.pdf");
@@ -396,7 +396,7 @@ public sealed class DeviceRegistrarTests
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.4,5,6")]
+    [Trait("Criteria", "UC-02.AC4,5,6")]
     public async Task Tells_every_reason_at_once_including_the_files()
     {
         _files.WithFile("shared.pdf", "x");

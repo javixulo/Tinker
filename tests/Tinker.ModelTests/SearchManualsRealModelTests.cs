@@ -29,7 +29,7 @@ public sealed class SearchManualsRealModelTests : IDisposable
     }
 
     [Theory]
-    [Trait("Criteria", "UC-08.1")]
+    [Trait("Criteria", "UC-08.AC1")]
     [InlineData("How long does the guarantee last?", 3)]
     [InlineData("What do I do if the lamp does not turn on?", 1)]
     [InlineData("Can the device be controlled with my voice?", 2)]

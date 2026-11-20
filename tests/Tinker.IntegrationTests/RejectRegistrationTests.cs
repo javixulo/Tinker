@@ -34,7 +34,7 @@ public sealed class RejectRegistrationTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.1")]
+    [Trait("Criteria", "UC-02.AC1")]
     public async Task Rejects_a_device_already_registered_even_with_another_manual()
     {
         var existing = await Registered("Samsung", "QE55Q60", _env.Pdf("a.pdf", "Alpha."));
@@ -49,7 +49,7 @@ public sealed class RejectRegistrationTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.2")]
+    [Trait("Criteria", "UC-02.AC2")]
     public async Task Rejects_the_same_device_written_differently()
     {
         var existing = await Registered("Samsung", "QE55Q60", _env.Pdf("a.pdf", "Alpha."));
@@ -63,7 +63,7 @@ public sealed class RejectRegistrationTests : IDisposable
     }
 
     [Theory]
-    [Trait("Criteria", "UC-02.1,2")]
+    [Trait("Criteria", "UC-02.AC1,2")]
     [InlineData("Philips", "Hué", "Philips", "hue")]
     [InlineData("Philips", "Hue", "PHILIPS", "HUÉ")]
     [InlineData("Philips Hué", "Bridge", "philips  hue", " BRIDGE ")]
@@ -81,7 +81,7 @@ public sealed class RejectRegistrationTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.3")]
+    [Trait("Criteria", "UC-02.AC3")]
     public async Task Registering_twice_is_rejected_the_second_time()
     {
         var manual = _env.Pdf("a.pdf", "Alpha.");
@@ -94,7 +94,7 @@ public sealed class RejectRegistrationTests : IDisposable
     }
 
     [Theory]
-    [Trait("Criteria", "UC-02.4")]
+    [Trait("Criteria", "UC-02.AC4")]
     [InlineData("", "Model", true, "brand")]
     [InlineData("Brand", "   ", true, "model")]
     [InlineData(null, null, false, "brand, model")]
@@ -110,7 +110,7 @@ public sealed class RejectRegistrationTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.12")]
+    [Trait("Criteria", "UC-02.AC12")]
     public async Task Manuals_that_cannot_be_read_are_listed_with_their_reason_and_nothing_is_saved()
     {
         var readable = _env.Pdf("ok.pdf", "Alpha.");
@@ -129,7 +129,7 @@ public sealed class RejectRegistrationTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.6")]
+    [Trait("Criteria", "UC-02.AC6")]
     public async Task The_same_file_written_two_ways_is_the_same_manual()
     {
         await Registered("Acme", "One", _env.Pdf("shelly/a.pdf", "Alpha."));
@@ -140,7 +140,7 @@ public sealed class RejectRegistrationTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.7")]
+    [Trait("Criteria", "UC-02.AC7")]
     public async Task Rejects_paths_that_point_outside_the_manuals_folder()
     {
         var outside = Path.Combine(_env.Root, "outside");
@@ -159,7 +159,7 @@ public sealed class RejectRegistrationTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.7")]
+    [Trait("Criteria", "UC-02.AC7")]
     public async Task Links_are_followed_in_every_component_of_the_path()
     {
         var outside = Path.Combine(_env.Root, "outside");
@@ -179,7 +179,7 @@ public sealed class RejectRegistrationTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.7")]
+    [Trait("Criteria", "UC-02.AC7")]
     public async Task A_link_that_stays_inside_the_folder_is_allowed_and_stored_by_its_real_path()
     {
         _env.Pdf("shelly/guide.pdf", "Alpha.");
@@ -192,7 +192,7 @@ public sealed class RejectRegistrationTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.8")]
+    [Trait("Criteria", "UC-02.AC8")]
     public async Task Rejects_paths_with_dot_dot_even_when_they_would_end_up_inside()
     {
         _env.Pdf("shelly/dimmer_2_guide.pdf", "Alpha.");
@@ -209,7 +209,7 @@ public sealed class RejectRegistrationTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.9")]
+    [Trait("Criteria", "UC-02.AC9")]
     public async Task Does_not_reveal_whether_a_file_outside_the_folder_exists()
     {
         var outside = Path.Combine(_env.Root, "outside");
@@ -230,7 +230,7 @@ public sealed class RejectRegistrationTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.11")]
+    [Trait("Criteria", "UC-02.AC11")]
     public async Task A_failure_after_the_device_is_written_rolls_back_everything()
     {
         using var env = new TestEnvironment(wrapIndex: index => new ThrowingIndex(index));
@@ -246,7 +246,7 @@ public sealed class RejectRegistrationTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.11")]
+    [Trait("Criteria", "UC-02.AC11")]
     public async Task A_database_that_cannot_be_opened_fails()
     {
         using var env = new TestEnvironment(brokenDatabasePath: Path.Combine(Path.GetTempPath(), "tinker-no-such-folder-" + Guid.NewGuid().ToString("N"), "inventory.db"));
@@ -257,7 +257,7 @@ public sealed class RejectRegistrationTests : IDisposable
     }
 
     [Fact]
-    [Trait("Criteria", "UC-02.1,6")]
+    [Trait("Criteria", "UC-02.AC1,6")]
     public async Task When_two_registrations_race_the_database_decides_and_the_loser_is_rolled_back()
     {
         RacyInventory racy = null!;

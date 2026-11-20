@@ -7,7 +7,7 @@ namespace Tinker.UnitTests;
 public sealed class TextKeysTests
 {
     [Theory]
-    [Trait("Criteria", "UC-05.1, UC-06.1")]
+    [Trait("Criteria", "UC-05.AC1, UC-06.AC1")]
     [InlineData("Habitación", "habitacion")]
     [InlineData("  habitacion ", "habitacion")]
     [InlineData("Philips   Hué", "philips hue")]
@@ -19,11 +19,11 @@ public sealed class TextKeysTests
         Assert.Equal(expected, TextKeys.Fold(given));
 
     [Fact]
-    [Trait("Criteria", "UC-02.2")]
+    [Trait("Criteria", "UC-02.AC2")]
     public void Fold_of_null_is_empty() => Assert.Equal("", TextKeys.Fold(null));
 
     [Theory]
-    [Trait("Criteria", "UC-02.2")]
+    [Trait("Criteria", "UC-02.AC2")]
     [InlineData("a-b", "ab")]
     [InlineData("a.b", "ab")]
     [InlineData("a&b", "a b")]
