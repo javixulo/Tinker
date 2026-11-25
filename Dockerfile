@@ -3,7 +3,7 @@
 # assemblies and data files), so a multi-platform build does not compile under emulation.
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY global.json Directory.Build.props ./
+COPY global.json Directory.Build.props Directory.Packages.props ./
 COPY src/Tinker.Core/Tinker.Core.csproj src/Tinker.Core/
 COPY src/Tinker.Mcp/Tinker.Mcp.csproj src/Tinker.Mcp/
 RUN dotnet restore src/Tinker.Mcp
