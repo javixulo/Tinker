@@ -18,7 +18,7 @@
       "parentId": "wrk_tinker_mcp",
       "name": "Base Environment",
       "data": {
-        "base_url": "http://localhost:8080"
+        "base_url": "http://localhost:7843"
       },
       "dataPropertyOrder": {
         "&": [
@@ -32,7 +32,7 @@
         {
           "id": "envPair_base_url",
           "name": "base_url",
-          "value": "http://localhost:8080",
+          "value": "http://localhost:7843",
           "type": "str",
           "enabled": true
         }
@@ -342,7 +342,7 @@
       "_type": "request",
       "parentId": "fld_uc07",
       "name": "3 No device registered",
-      "description": "Criterion 3. Only from an EMPTY database (Sample/down.sh --reset, then start the server and run this first). Expect an empty list and a message that says to register a device.",
+      "description": "Criterion 3. Only from an EMPTY database (delete the data folder, start the server and run this first). Expect an empty list and a message that says to register a device.",
       "method": "POST",
       "url": "{{ _.base_url }}/mcp",
       "body": {

@@ -143,7 +143,6 @@ Give the variables a value in a `.env` next to the file (copy `.env.template`), 
 | `TINKER_PORT` | `7843` | Optional (default 7843). Port Tinker listens on, on this machine |
 | `TINKER_UID`, `TINKER_GID` | `1000`, `1000` | Optional, only in the repository's compose file. The owner of the data folder (`id -u`, `id -g`) |
 | `TZ` | `Europe/Madrid` | Optional. Timezone |
-| `TINKER_ENVIRONMENT` | `production` | Optional, only in the repository's compose file. Shown as `deployment.environment.name` in logs and traces |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://seq:5341/ingest/otlp` | Optional. Where to send logs and traces; empty sends nothing |
 
 An example of the matching `.env`, with a value for every variable. Only the first one is required; change the others only if you need to:
@@ -159,7 +158,6 @@ TINKER_PORT=7843
 TINKER_UID=1000
 TINKER_GID=1000
 TZ=Europe/Madrid
-TINKER_ENVIRONMENT=production
 OTEL_EXPORTER_OTLP_ENDPOINT=http://seq:5341/ingest/otlp
 ```
 

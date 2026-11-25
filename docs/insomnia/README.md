@@ -6,9 +6,9 @@
 
 **Re-importing.** If you import a newer version over a workspace you already have, Insomnia may keep the old, empty *Base Environment* and the `{{ _.base_url }}` variable has no value. Delete the old *Tinker MCP* collection first and import again, or open *Manage Environments* and set `base_url` by hand.
 
-**URL:** the environment variable `base_url` is the host and port, with no path (default `http://localhost:8080`, the `Sample/` sandbox). The requests add `/mcp` or `/health`. Change it in *Manage Environments* to point at another server.
+**URL:** the environment variable `base_url` is the host and port, with no path (default `http://localhost:7843`, the port of `docker-compose.yml`). The requests add `/mcp` or `/health`. Change it in *Manage Environments* to point at another server.
 
-**Order and state.** A device registers once, so the results depend on what is in the database. For the expected results run the requests in order from an empty database (`Sample/down.sh --reset`, then `docker compose up -d`):
+**Order and state.** A device registers once, so the results depend on what is in the database. For the expected results run the requests in order from an empty database (delete the data folder, then `docker compose up -d`):
 
 | Request | Expected |
 |---|---|

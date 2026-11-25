@@ -24,6 +24,3 @@ data/
 
 TestResults/
 
-# Local sandbox: the database and the copies of the manuals
-Sample/data/
-Sample/manuals/
