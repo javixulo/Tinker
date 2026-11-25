@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # The build and model stages always run on the machine that builds (the output is the same for every architecture: portable
 # assemblies and data files), so a multi-platform build does not compile under emulation.
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 WORKDIR /src
 COPY global.json Directory.Build.props Directory.Packages.props ./
 COPY src/Tinker.Core/Tinker.Core.csproj src/Tinker.Core/
@@ -28,7 +28,7 @@ RUN base="https://huggingface.co/BAAI/bge-small-en-v1.5/resolve/${MODEL_REVISION
  && echo "${MODEL_ONNX_SHA256}  model.onnx" | sha256sum -c - \
  && echo "${MODEL_VOCAB_SHA256}  vocab.txt" | sha256sum -c -
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0
+FROM mcr.microsoft.com/dotnet/aspnet:11.0
 # curl is only for the HEALTHCHECK: the runtime image has no HTTP client.
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app

@@ -71,7 +71,7 @@ The full behaviour (use cases and acceptance criteria) is in [`docs/functional_s
 
 # Technical guide
 
-Tinker is written in **C# / .NET 10**.
+Tinker is written in **C# / .NET 11**.
 
 ## Requirements
 
