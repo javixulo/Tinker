@@ -10,6 +10,11 @@ entry is missing.
 
 ## [Unreleased]
 
+## [0.1.0-beta.1] - 2026-11-25
+
+Initial test only: the first pre-release, to check the publication of the image and to run it for the first time on a Docker host. It is not the
+stable version and `latest` does not point to it: use its exact version.
+
 Tinker is an MCP server that keeps the inventory of the devices of a home and searches their PDF manuals. It runs as a
 Docker container and talks to MCP clients (Claude, for example) over HTTP.
 
