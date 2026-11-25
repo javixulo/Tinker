@@ -8,7 +8,10 @@ COPY src/Tinker.Core/Tinker.Core.csproj src/Tinker.Core/
 COPY src/Tinker.Mcp/Tinker.Mcp.csproj src/Tinker.Mcp/
 RUN dotnet restore src/Tinker.Mcp
 COPY src/ src/
-RUN dotnet publish src/Tinker.Mcp -c Release --no-restore -o /app
+# The version comes from the git tag (the release workflow passes it); the build context has no .git folder. A build that
+# is not a release is 0.0.0-dev. It is declared here, after the restore, so changing it does not invalidate the restore layer.
+ARG VERSION=0.0.0-dev
+RUN dotnet publish src/Tinker.Mcp -c Release --no-restore -p:Version=${VERSION} -o /app
 # ONNX Runtime and SQLite come with their native libraries for every platform (about 300 MB). A container always runs
 # Linux, on Intel/AMD or ARM, so only those two are kept.
 RUN find /app/runtimes -mindepth 1 -maxdepth 1 ! -name linux-x64 ! -name linux-arm64 -exec rm -rf {} +
@@ -29,6 +32,11 @@ RUN base="https://huggingface.co/BAAI/bge-small-en-v1.5/resolve/${MODEL_REVISION
  && echo "${MODEL_VOCAB_SHA256}  vocab.txt" | sha256sum -c -
 
 FROM mcr.microsoft.com/dotnet/aspnet:11.0
+ARG VERSION=0.0.0-dev
+LABEL org.opencontainers.image.title="Tinker" \
+      org.opencontainers.image.description="MCP server: inventory of home devices and search in their manuals" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="${VERSION}"
 # curl is only for the HEALTHCHECK: the runtime image has no HTTP client.
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app

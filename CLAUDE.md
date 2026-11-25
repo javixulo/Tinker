@@ -25,7 +25,10 @@ The agent `grimoire:spec-reviewer` reviews the specs; run it after writing or ch
 ```bash
 dotnet build
 dotnet run --project src/Tinker.Mcp
+dotnet test --project tests/Tinker.UnitTests   # or another test project; the levels are in the README
 ```
+
+The container is configured only through its compose file (`docker-compose.yml`, `.env.template`). Releases are published by `.github/workflows/release.yml` when a `v*.*.*` tag is pushed (technical spec, sections 8 and 10): never publish an image by hand. Before tagging, the entry of the version must be in `CHANGELOG.md`.
 
 ## Git and secrets
 

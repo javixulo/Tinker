@@ -5,6 +5,7 @@ using System.Text.Json.Serialization.Metadata;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.AspNetCore;
+using ModelContextProtocol.Protocol;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -23,6 +24,10 @@ using Tinker.Mcp.Tools;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// The version of the build: stamped from the git tag (-p:Version=...), or 0.0.0-dev for a build that is not a release.
+// It is the one the telemetry and the MCP handshake report; the metadata after '+' (the commit) is not part of it.
+var version = typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0];
+
 // Logs go to the console on stderr (so `docker logs` works when the OTLP backend is down) and to OpenTelemetry.
 builder.Logging.AddConsole(options => options.LogToStandardErrorThreshold = LogLevel.Trace);
 
@@ -30,7 +35,7 @@ var otlp = builder.Services.AddOpenTelemetry()
     // service.name and service.version here; deployment.environment.name comes from OTEL_RESOURCE_ATTRIBUTES (technical spec, section 3).
     .ConfigureResource(resource => resource.AddService(
         builder.Configuration["OTEL_SERVICE_NAME"] ?? "tinker-mcp",
-        serviceVersion: typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0]))
+        serviceVersion: version))
     .WithTracing(tracing => tracing.AddSource(Telemetry.SourceName).AddAspNetCoreInstrumentation())
     .WithLogging();
 if (!string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
@@ -76,7 +81,8 @@ var json = new JsonSerializerOptions(JsonSerializerDefaults.Web)
 };
 
 builder.Services
-    .AddMcpServer()
+    // The library reports 0.0.0.0 unless it is told the version; the name is the one it already reported (the assembly name).
+    .AddMcpServer(options => options.ServerInfo = new Implementation { Name = "Tinker.Mcp", Version = version ?? "0.0.0-dev" })
     .WithHttpTransport(options => options.SessionMode = HttpServerSessionMode.Stateless)
     .WithRequestFilters(filters => filters.AddCallToolFilter(ToolErrorFlag.Apply))
     .WithTools<RegisterDeviceTool>(json)

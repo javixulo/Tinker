@@ -1,14 +1,24 @@
-# Tinker MCP. Copy this file next to your other MCPs and adjust the paths and the user.
+# Tinker MCP (inventory of home devices + search in their manuals). Everything Tinker needs is in this file plus the
+# ${VARIABLES}: put them in a `.env` next to this file (copy `.env.template`), in the environment of the shell that runs
+# compose, or in the variables of your stack editor (Portainer, Dockge...). The ones with `:?` are required: compose refuses
+# to start without them.
 services:
   tinker:
-    build: .
-    image: tinker-mcp:latest
+    # The published image (see README, "Updating"). To build it from this repository instead, uncomment `build` and
+    # use `docker compose up -d --build`.
+    image: ghcr.io/javixulo/tinker:${TINKER_VERSION:?Set TINKER_VERSION to the version to run, for example 0.1.0 (see CHANGELOG.md)}
+    # build: .
     container_name: tinker-mcp
     restart: unless-stopped
     # Non-root: use the owner of the data folder (`id -u`:`id -g` on the NAS).
     user: "${TINKER_UID:-1000}:${TINKER_GID:-1000}"
     ports:
-      - "${TINKER_PORT:-8080}:8080"
+      - "${TINKER_PORT:-7843}:8080"
+    # Least privilege: Tinker only serves HTTP and writes its own data folder.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     environment:
       TZ: ${TZ:-Europe/Madrid}
       # OpenTelemetry (Seq accepts OTLP over HTTP). Leave empty to export nothing; logs still go to `docker logs`.

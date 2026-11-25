@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -38,6 +39,19 @@ public sealed class ToolAnnotationsContractTests : IAsyncLifetime
         await _client.DisposeAsync();
         await _factory.DisposeAsync();
         Directory.Delete(_root, recursive: true);
+    }
+
+    // Catches: the handshake reporting the library's default version instead of the one the build stamped from the tag.
+    [Fact]
+    public void The_handshake_reports_the_version_of_the_build()
+    {
+        var stamped = typeof(Program).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion.Split('+')[0];
+
+        var info = _client.ServerInfo;
+        Assert.NotNull(info);
+        Assert.Equal(stamped, info.Version);
+        Assert.Equal("Tinker.Mcp", info.Name);
     }
 
     // Catches: a tool added or renamed without saying so (the tool list is the contract).

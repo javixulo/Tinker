@@ -108,33 +108,78 @@ On start the server validates its configuration (data folder writable, manuals f
 
 ## Docker
 
-```bash
-TINKER_DATA=/path/to/data TINKER_MANUALS=/path/to/manuals TINKER_UID=$(id -u) TINKER_GID=$(id -g) docker compose up -d --build
-```
-
-A minimal `docker-compose.yml` to drop next to your other services (the repository's own file has the same shape and more comments):
+Tinker runs as a container. Save this as `docker-compose.yml` (the repository's own file has the same shape, with more comments) and give a value to the `${VARIABLES}`:
 
 ```yaml
 services:
   tinker:
-    build: .                     # or `image:` if you pushed it to a registry
-    image: tinker-mcp:latest
+    image: ghcr.io/javixulo/tinker:${TINKER_VERSION}   # required, for example 0.1.0
     container_name: tinker-mcp
     restart: unless-stopped
-    user: "1000:1000"            # owner of the data folder (`id -u`:`id -g`)
+    user: "1000:1000"                  # owner of the data folder (`id -u`:`id -g`)
     ports:
-      - "8080:8080"              # MCP endpoint (Streamable HTTP) and /health
+      - "${TINKER_PORT:-7843}:8080"    # MCP endpoint (Streamable HTTP) and /health
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     environment:
-      TZ: Europe/Madrid
+      TZ: ${TZ:-Europe/Madrid}
+      # Logs and traces (OpenTelemetry). Empty exports nothing; logs still go to `docker logs`.
       OTEL_SERVICE_NAME: tinker-mcp
-      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf   # Seq does not speak gRPC
-      OTEL_EXPORTER_OTLP_ENDPOINT: ""   # e.g. http://seq:5341/ingest/otlp ; empty exports nothing
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}                  # for Seq: http://seq:5341/ingest/otlp
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-http/protobuf}     # Seq only accepts http/protobuf
+      OTEL_RESOURCE_ATTRIBUTES: deployment.environment.name=production
     volumes:
-      - /srv/tinker/data:/data          # SQLite database, on a local disk
-      - /srv/tinker/manuals:/manuals:ro # your manuals, read-only
+      - ${TINKER_DATA:-./data}:/data             # SQLite database, on a local disk
+      - ${TINKER_MANUALS:-./manuals}:/manuals:ro # your manuals, read-only
 ```
 
-See `docker-compose.yml` for the variables. The data folder must be on a local disk (SQLite locking is not reliable over NFS or SMB) and writable by `TINKER_UID`; the manuals are mounted read-only. The embedding model (about 130 MB) is downloaded when the image is built, from a pinned revision and checked against its SHA-256, so the first build needs network and the container needs none. The container runs as a non-root user, has a health check on `/health` and `restart: unless-stopped`.
+Give the variables a value in a `.env` next to the file (copy `.env.template`), in the environment of the shell that runs compose, or in the variables of your stack editor (Portainer, Dockge...):
+
+| Variable | Example | Meaning |
+|---|---|---|
+| `TINKER_VERSION` | `0.1.0` | **Required.** Version of the image. Use an exact version, so updates happen on purpose (`latest` is the newest stable one; a pre-release needs its exact version) |
+| `TINKER_DATA` | `/srv/tinker/data` | Optional (default `./data`). Folder of the database: a **local disk** (SQLite locking is not reliable over NFS or SMB), writable by `TINKER_UID` |
+| `TINKER_MANUALS` | `/srv/tinker/manuals` | Optional (default `./manuals`). Your PDF manuals, mounted read-only |
+| `TINKER_PORT` | `7843` | Optional (default 7843). Port Tinker listens on, on this machine |
+| `TINKER_UID`, `TINKER_GID` | `1000`, `1000` | Optional, only in the repository's compose file. The owner of the data folder (`id -u`, `id -g`) |
+| `TZ` | `Europe/Madrid` | Optional. Timezone |
+| `TINKER_ENVIRONMENT` | `production` | Optional, only in the repository's compose file. Shown as `deployment.environment.name` in logs and traces |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://seq:5341/ingest/otlp` | Optional. Where to send logs and traces; empty sends nothing |
+
+An example of the matching `.env`, with a value for every variable. Only the first one is required; change the others only if you need to:
+
+```ini
+# Required
+TINKER_VERSION=0.1.0
+
+# Optional (these are the defaults, except the data and manuals folders, which are examples)
+TINKER_DATA=/srv/tinker/data
+TINKER_MANUALS=/srv/tinker/manuals
+TINKER_PORT=7843
+TINKER_UID=1000
+TINKER_GID=1000
+TZ=Europe/Madrid
+TINKER_ENVIRONMENT=production
+OTEL_EXPORTER_OTLP_ENDPOINT=http://seq:5341/ingest/otlp
+```
+
+```powershell
+Copy-Item .env.template .env      # then edit it
+docker compose up -d
+docker compose logs tinker        # "Startup checks passed"
+```
+
+Then, to use it from Claude Code:
+
+```bash
+claude mcp add --transport http tinker http://localhost:7843/mcp
+```
+
+The container runs as a non-root user, has a health check on `/health` and `restart: unless-stopped`, and needs no network access. TLS and authentication are the job of your reverse proxy, not Tinker's. To build the image from this repository instead of pulling it, uncomment `build: .` in the repository's compose file and run `docker compose up -d --build`; the first build needs network to download the embedding model (about 130 MB, from a pinned revision, checked against its SHA-256).
+
+**The image.** `ghcr.io/javixulo/tinker` (GitHub's container registry), for `linux/amd64` and `linux/arm64`. Tags: `0.1.0` (never moves), `0.1` (the newest patch), `latest` (the newest stable version; never a pre-release) and `sha-<commit>`. If the package is private, log in once with `docker login ghcr.io` using a GitHub token with `read:packages`. No image has been published yet.
+
+**Updating and going back.** Change `TINKER_VERSION` and run `docker compose pull && docker compose up -d`. The previous image stays on the machine until you remove it, so going back is setting the old version again. [`CHANGELOG.md`](CHANGELOG.md) says what changed in each version, configuration included. The version that runs is in the image label (`docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' tinker-mcp`), in the logs and in the MCP handshake.
 
 The image bundles the embedding model [BAAI/bge-small-en-v1.5](https://huggingface.co/BAAI/bge-small-en-v1.5) (MIT license), unmodified, so the semantic search works offline out of the box.
 
@@ -160,7 +205,7 @@ Run one level with `dotnet test --project tests/Tinker.UnitTests` (or the name o
 
 [![CI](https://github.com/javixulo/Tinker/actions/workflows/ci.yml/badge.svg)](https://github.com/javixulo/Tinker/actions/workflows/ci.yml)
 
-GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) builds the solution once on every push to `main` and every pull request, then runs the four test projects in parallel. Another job builds the Docker image, runs `scripts/smoke-test.sh` against it and, on pushes to `main`, the system tests (you can run it too: `docker build -t tinker-mcp . && scripts/smoke-test.sh tinker-mcp`). The model tests download the same pinned embedding model that the Docker image ships. Publishing the Docker image is not automated yet. A manual workflow, [`release-dry-run.yml`](.github/workflows/release-dry-run.yml), rehearses publishing the image (multi-platform build, tags, push and pull, smoke and system tests) against a throwaway registry inside the job. It publishes nothing. More detail in [`docs/technical_spec.md`](docs/technical_spec.md), section 8.
+GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) builds the solution once on every push to `main` and every pull request, then runs the four test projects in parallel. Another job builds the Docker image, runs `scripts/smoke-test.sh` against it and, on pushes to `main`, the system tests (you can run it too: `docker build -t tinker-mcp . && scripts/smoke-test.sh tinker-mcp`). The model tests download the same pinned embedding model that the Docker image ships. Pushing a version tag (`v0.1.0`, or `v0.1.0-beta.1` for a pre-release) runs [`release.yml`](.github/workflows/release.yml): it checks the tag and the [changelog](CHANGELOG.md) entry, tests the image and publishes it to `ghcr.io/javixulo/tinker` for `linux/amd64` and `linux/arm64`, then creates the GitHub release. It has not run for real yet. Before tagging, rename `Unreleased` in `CHANGELOG.md` to the version and commit it. A manual workflow, [`release-dry-run.yml`](.github/workflows/release-dry-run.yml), rehearses publishing the image (multi-platform build, tags, push and pull, smoke and system tests) against a throwaway registry inside the job. It publishes nothing. More detail in [`docs/technical_spec.md`](docs/technical_spec.md), section 8.
 
 ## Architecture
 

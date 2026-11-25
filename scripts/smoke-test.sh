@@ -2,7 +2,7 @@
 # Smoke test of the Docker image: it starts, passes its startup validation (data folder, manuals folder, database and
 # embedding model), answers /health and lists the five tools over MCP. It does not exercise the tools.
 #
-# Usage: scripts/smoke-test.sh [image]        (default: tinker-mcp:latest)
+# Usage: [EXPECTED_VERSION=0.1.0] scripts/smoke-test.sh [image]        (default image: tinker-mcp:latest)
 set -euo pipefail
 
 image="${1:-tinker-mcp:latest}"
@@ -58,5 +58,16 @@ for tool in "${expected_tools[@]}"; do
   grep -q "\"name\":\"$tool\"" <<<"$response" || fail "the tool $tool is not listed"
 done
 echo "ok: the ${#expected_tools[@]} tools are listed"
+
+# The release workflow sets this to the version of the tag: the handshake must report it, not a default.
+if [ -n "${EXPECTED_VERSION:-}" ]; then
+  handshake="$(curl -fsS -m 10 -X POST "http://127.0.0.1:$port/mcp" \
+    -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+    -d '{"jsonrpc":"2.0","id":2,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"0"}}}')" \
+    || fail "initialize did not answer"
+  grep -q "\"serverInfo\":{[^}]*\"version\":\"$EXPECTED_VERSION\"" <<<"$handshake" \
+    || fail "the handshake does not report the version $EXPECTED_VERSION: $handshake"
+  echo "ok: the server reports version $EXPECTED_VERSION"
+fi
 
 echo "Smoke test passed."

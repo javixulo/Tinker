@@ -1,0 +1,207 @@
+name: Release
+
+# Publishes the Docker image to the GitHub container registry (ghcr.io) when a version tag is pushed (v1.2.3, v0.2.0-beta.1).
+# The tag is the only place the version is typed: the image tags, the image label and the version the running server reports
+# all come from it. It publishes only an image that passed its tests, and nothing else can publish: pull requests and
+# branches never reach the publishing job. `release-dry-run.yml` rehearses all of this without publishing.
+# The workflow that runs is the file AT THE TAGGED COMMIT: a fix to this file must be in `main` before the tag is made.
+# Who may create the tag (a tag ruleset) is in technical spec, section 10, "Repository settings".
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+# Two pushes of the same tag never overlap, and a release is never cancelled half-way.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # A tag on a stray commit, a malformed version, a missing changelog entry or a failing test must publish nothing.
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+
+      - name: Check the tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error title=Release::The tag '$TAG' is not a semantic version with a leading v (for example v0.2.0 or v0.2.0-beta.1)."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error title=Release::The tagged commit is not in main. Tag a commit that is in main."
+            exit 1
+          fi
+          # The notes of the release are this entry: it must exist before anything is published.
+          bash scripts/changelog-entry.sh "${TAG#v}" > /dev/null
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          global-json-file: global.json
+
+      # The levels that need neither the image nor the model. The model tests are not repeated here: the image carries the
+      # model and the system tests below run on it.
+      - name: Test (unit, integration and contract)
+        run: dotnet test -c Release --project tests/Tinker.UnitTests && dotnet test -c Release --project tests/Tinker.IntegrationTests && dotnet test -c Release --project tests/Tinker.ContractTests
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # Only this job can write packages. The built-in token is enough: no registry password is stored in the repository.
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Work out the version and the image name
+        id: names
+        env:
+          TAG: ${{ github.ref_name }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          # Image names in the registry are lowercase.
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${OWNER,,}/tinker" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      # The full version, the minor and the major (the last two move on purpose; the major is skipped while 0.x), the commit,
+      # and `latest` only for a version without a suffix.
+      - name: Work out the tags
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
+        with:
+          images: ${{ steps.names.outputs.image }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,format=short
+          flavor: latest=auto
+
+      # Build once for the runner's architecture and test that very build. The multi-platform push below reuses these layers
+      # from the cache, so the amd64 image that is published is the one that was tested.
+      - name: Build the image to test
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          load: true
+          tags: tinker-mcp:release-test
+          build-args: VERSION=${{ steps.names.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # It also checks that the server reports the version of the tag in the MCP handshake, not a default.
+      - name: Smoke test
+        env:
+          EXPECTED_VERSION: ${{ steps.names.outputs.version }}
+        run: bash scripts/smoke-test.sh tinker-mcp:release-test
+
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          global-json-file: global.json
+
+      - name: System tests
+        env:
+          TINKER_SYSTEM_IMAGE: tinker-mcp:release-test
+        run: dotnet run --project tests/Tinker.SystemTests -c Release
+
+      # Warns, never blocks: a release should not depend on when somebody else publishes a fix. Read it in the job summary.
+      - name: Scan the image for known vulnerabilities
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: tinker-mcp:release-test
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
+          format: table
+          output: trivy-report.txt
+
+      - name: Report the scan
+        if: always()
+        run: |
+          {
+            echo "## Vulnerability scan (HIGH and CRITICAL with a fix; informative, it does not block)"
+            echo '```'
+            cat trivy-report.txt 2>/dev/null || echo "The scan did not produce a report."
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push the multi-platform image
+        id: push
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: VERSION=${{ steps.names.outputs.version }}
+          cache-from: type=gha
+          # Evidence attached to the image: what it contains and how and from which commit it was built.
+          sbom: true
+          provenance: mode=max
+
+      - name: Summary
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          {
+            echo "## Published"
+            echo
+            echo "Digest: \`$DIGEST\`"
+            echo
+            echo '```'
+            echo "$TAGS"
+            echo '```'
+            echo
+            echo "First release of a new package: ghcr.io may create it **private**. Check its visibility in the repository's Packages."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # The release notes are the changelog entry of that version, copied, not a second text.
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          bash scripts/changelog-entry.sh "$version" > notes.md
+          flags=()
+          if [[ "$version" == *-* ]]; then flags+=(--prerelease); fi
+          # The release may already exist (created from the GitHub web page when the tag was made): then only its notes are set.
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TAG" --notes-file notes.md "${flags[@]}"
+          else
+            gh release create "$TAG" --title "$TAG" --notes-file notes.md "${flags[@]}"
+          fi
