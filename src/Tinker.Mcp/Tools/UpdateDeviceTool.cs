@@ -16,6 +16,7 @@ public sealed class UpdateDeviceTool(DeviceUpdater updater)
         "A field that is not sent keeps its value. A field sent with an empty value (empty text or an empty list) is emptied, except brand, model and status, which cannot be. " +
         "A list (manuals, urls) replaces the current list as a whole: to add an item send the current items plus the new one, to remove one send the list without it, to remove all send an empty list. " +
         "New manuals are read so they can be searched; removed manuals lose their content in the index, but their files are not touched. " +
+        "Reading is slow and can take minutes: add one new manual per call, and if a call times out check with find_devices before retrying. " +
         "It edits at once, so confirm with the user before changing something they did not ask for. " +
         "Returns the device as stored, or a tool error with the errors: each one says what to fix. A rejected update changes nothing. " +
         "device_exists and manual_in_use carry the other device involved; device_not_found means the device_id is wrong, use find_devices.")]

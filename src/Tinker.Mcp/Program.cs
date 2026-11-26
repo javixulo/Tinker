@@ -36,7 +36,9 @@ var otlp = builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService(
         builder.Configuration["OTEL_SERVICE_NAME"] ?? "tinker-mcp",
         serviceVersion: version))
-    .WithTracing(tracing => tracing.AddSource(Telemetry.SourceName).AddAspNetCoreInstrumentation())
+    // The health check runs as long as the container does: its requests are not traced (technical spec, section 3).
+    .WithTracing(tracing => tracing.AddSource(Telemetry.SourceName)
+        .AddAspNetCoreInstrumentation(options => options.Filter = context => !context.Request.Path.StartsWithSegments("/health")))
     .WithLogging();
 if (!string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
 {
@@ -58,7 +60,7 @@ builder.Services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>>(sp 
     return options.EmbeddingModel switch
     {
         "hash" => new HashEmbeddingGenerator(),
-        _ => new BgeEmbeddingGenerator(options.EmbeddingModelPath),
+        _ => new BgeEmbeddingGenerator(options.EmbeddingModelPath, options.EmbeddingBatchSize, options.EmbeddingThreads),
     };
 });
 builder.Services.AddSingleton<DeviceRegistrar>();
@@ -114,6 +116,7 @@ if (problems.Count > 0)
 app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Startup").LogInformation("Startup checks passed");
 #pragma warning restore CA1848
 
+app.UseMiddleware<RequestLogging>();
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 app.MapMcp("/mcp");
 

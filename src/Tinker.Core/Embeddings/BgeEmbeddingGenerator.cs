@@ -22,16 +22,28 @@ public sealed class BgeEmbeddingGenerator : IEmbeddingGenerator<string, Embeddin
 
     private static readonly string[] Files = ["model.onnx", "vocab.txt"];
 
-    private const int MaxTokens = 512;
-    private const int BatchSize = 16;
+    /// <summary>Texts embedded in one run of the model. A bigger batch uses more memory.</summary>
+    public const int DefaultBatchSize = 4;
 
+    private const int MaxTokens = 512;
+
+    private readonly int _batchSize;
     private readonly InferenceSession _session;
     private readonly BertTokenizer _tokenizer;
     private readonly EmbeddingGeneratorMetadata _metadata = new("tinker", null, ModelId, Dimensions);
 
-    public BgeEmbeddingGenerator(string modelPath)
+    /// <param name="modelPath">Folder with the model files.</param>
+    /// <param name="batchSize">Texts in one run of the model, at least 1.</param>
+    /// <param name="threads">CPU threads of one run; 0 lets ONNX Runtime choose.</param>
+    public BgeEmbeddingGenerator(string modelPath, int batchSize = DefaultBatchSize, int threads = 0)
     {
-        _session = new InferenceSession(Path.Combine(modelPath, "model.onnx"));
+        ArgumentOutOfRangeException.ThrowIfLessThan(batchSize, 1);
+        ArgumentOutOfRangeException.ThrowIfNegative(threads);
+        _batchSize = batchSize;
+        // No memory arena: by default ONNX Runtime keeps the biggest buffers it ever needed for as long as the session
+        // lives, which here is the whole life of the server (technical spec, section 7, "Embedding model").
+        using var options = new SessionOptions { EnableCpuMemArena = false, EnableMemoryPattern = false, IntraOpNumThreads = threads };
+        _session = new InferenceSession(Path.Combine(modelPath, "model.onnx"), options);
         _tokenizer = BertTokenizer.Create(Path.Combine(modelPath, "vocab.txt"), new BertOptions { LowerCaseBeforeTokenization = true });
     }
 
@@ -46,10 +58,10 @@ public sealed class BgeEmbeddingGenerator : IEmbeddingGenerator<string, Embeddin
     {
         var texts = values.ToList();
         var result = new GeneratedEmbeddings<Embedding<float>>();
-        for (var start = 0; start < texts.Count; start += BatchSize)
+        for (var start = 0; start < texts.Count; start += _batchSize)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            foreach (var vector in EmbedBatch(texts.Skip(start).Take(BatchSize).ToList()))
+            foreach (var vector in EmbedBatch(texts.Skip(start).Take(_batchSize).ToList()))
             {
                 result.Add(new Embedding<float>(vector));
             }

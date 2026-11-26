@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# The build and model stages always run on the machine that builds (the output is the same for every architecture: portable
+# The build, publish and model stages always run on the machine that builds (the compiled output is the same for every architecture: portable
 # assemblies and data files), so a multi-platform build does not compile under emulation.
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 WORKDIR /src
@@ -12,9 +12,19 @@ COPY src/ src/
 # is not a release is 0.0.0-dev. It is declared here, after the restore, so changing it does not invalidate the restore layer.
 ARG VERSION=0.0.0-dev
 RUN dotnet publish src/Tinker.Mcp -c Release --no-restore -p:Version=${VERSION} -o /app
-# ONNX Runtime and SQLite come with their native libraries for every platform (about 300 MB). A container always runs
-# Linux, on Intel/AMD or ARM, so only those two are kept.
-RUN find /app/runtimes -mindepth 1 -maxdepth 1 ! -name linux-x64 ! -name linux-arm64 -exec rm -rf {} +
+
+# ONNX Runtime and SQLite come with their native libraries for every platform (about 300 MB). Each image keeps only the
+# ones of the architecture it runs on. This stage still runs on the machine that builds, and only this step differs per
+# target, so the compilation above is done once for all of them. TARGETARCH needs BuildKit (the default builder).
+FROM build AS publish
+ARG TARGETARCH
+RUN case "$TARGETARCH" in \
+      amd64) rid=linux-x64 ;; \
+      arm64) rid=linux-arm64 ;; \
+      *) echo "Unsupported architecture '$TARGETARCH' (amd64 or arm64; the build needs BuildKit)." >&2; exit 1 ;; \
+    esac \
+ && find /app/runtimes -mindepth 1 -maxdepth 1 ! -name "$rid" -exec rm -rf {} + \
+ && test -f "/app/runtimes/$rid/native/libonnxruntime.so"
 
 # The embedding model (technical spec, section 7). Pinned to one revision of the Hugging Face repository and checked
 # against its SHA-256, so the image never gets a different model without a build failure. It is its own stage and comes
@@ -41,7 +51,7 @@ LABEL org.opencontainers.image.title="Tinker" \
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=model /model /models/bge-small-en-v1.5
-COPY --from=build /app .
+COPY --from=publish /app .
 
 # /data and /manuals are mounted (see docker-compose.yml); nothing persistent lives in the image. The model is in the
 # image; mounting a folder on /models/bge-small-en-v1.5 replaces it.
@@ -51,6 +61,7 @@ ENV ASPNETCORE_HTTP_PORTS=8080 \
     Tinker__EmbeddingModelPath=/models/bge-small-en-v1.5
 
 EXPOSE 8080
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+# Every 5 seconds while it starts (--start-interval needs Docker Engine 25 or later), then every 5 minutes.
+HEALTHCHECK --interval=5m --timeout=5s --start-period=60s --start-interval=5s --retries=3 \
   CMD curl -fs http://localhost:8080/health || exit 1
 ENTRYPOINT ["dotnet", "Tinker.Mcp.dll"]

@@ -32,6 +32,16 @@ public static class StartupValidation
             }
         }
 
+        if (options.EmbeddingBatchSize is < 1 or > 64)
+        {
+            problems.Add($"Tinker__EmbeddingBatchSize is {options.EmbeddingBatchSize}. Set it to a number from 1 to 64, or remove it to use {BgeEmbeddingGenerator.DefaultBatchSize}.");
+        }
+
+        if (options.EmbeddingThreads is < 0 or > 256)
+        {
+            problems.Add($"Tinker__EmbeddingThreads is {options.EmbeddingThreads}. Set it to a number from 1 to 256, or to 0 to let ONNX Runtime choose.");
+        }
+
         if (problems.Count == 0)
         {
             CheckEmbeddingModel(options, services, problems);

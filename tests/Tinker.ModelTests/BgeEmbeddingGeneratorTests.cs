@@ -80,6 +80,23 @@ public sealed class BgeEmbeddingGeneratorTests : IDisposable
         Assert.True(Cosine(together[17].Vector.ToArray(), alone) > 0.999f);
     }
 
+    // Catches: tuning the batch or the threads changing the vectors, which would make an existing index wrong.
+    [Fact]
+    public async Task The_batch_size_and_the_threads_do_not_change_the_vectors()
+    {
+        // Lengths differ a lot, so the padding of a batch differs between the two settings.
+        var texts = Enumerable.Range(1, 20).Select(i => string.Join(' ', Enumerable.Repeat($"wiring a dimmer, step {i}.", i * 2))).ToList();
+        using var tuned = new BgeEmbeddingGenerator(ModelPath()!, batchSize: 16, threads: 1);
+
+        var byDefault = await _generator.GenerateAsync(texts, cancellationToken: TestContext.Current.CancellationToken);
+        var other = await tuned.GenerateAsync(texts, cancellationToken: TestContext.Current.CancellationToken);
+
+        for (var i = 0; i < texts.Count; i++)
+        {
+            Assert.True(Cosine(byDefault[i].Vector.ToArray(), other[i].Vector.ToArray()) > 0.9999f, $"text {i}");
+        }
+    }
+
     [Fact]
     public async Task A_text_longer_than_the_model_accepts_is_cut_not_rejected()
     {

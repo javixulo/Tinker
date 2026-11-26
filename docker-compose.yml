@@ -21,6 +21,9 @@ services:
       - no-new-privileges:true
     environment:
       TZ: ${TZ:-Europe/Madrid}
+      # The embedding model: texts per run (more uses more memory) and CPU threads (0: automatic). See README, "Configuration".
+      Tinker__EmbeddingBatchSize: ${TINKER_EMBEDDING_BATCH_SIZE:-4}
+      Tinker__EmbeddingThreads: ${TINKER_EMBEDDING_THREADS:-0}
       # OpenTelemetry (Seq accepts OTLP over HTTP). Leave empty to export nothing; logs still go to `docker logs`.
       OTEL_SERVICE_NAME: tinker-mcp
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}

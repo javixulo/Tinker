@@ -10,6 +10,22 @@ entry is missing.
 
 ## [Unreleased]
 
+### Changed
+
+- The health check of the image runs every 5 minutes instead of every 30 seconds (every 5 seconds while it starts, which needs
+  Docker Engine 25 or later).
+- Much less memory after reading manuals: the model no longer keeps its biggest buffers, and reads 4 texts at a time. Two new
+  settings tune it: `TINKER_EMBEDDING_BATCH_SIZE` and `TINKER_EMBEDDING_THREADS` in compose (`Tinker__EmbeddingBatchSize` and
+  `Tinker__EmbeddingThreads` in the container). The index does not need to be rebuilt.
+- A smaller image: each architecture only carries its own native libraries.
+- The descriptions of `register_device` and `update_device` warn the assistant that reading manuals is slow, ask it to add
+  them one at a time, and to check with `find_devices` before retrying a call that timed out.
+
+### Fixed
+
+- The health check no longer fills the logs and the traces. `/health` is not traced. Each request now writes one log line
+  instead of the several of ASP.NET Core, and the line of a successful health check is `Debug`, so it is hidden by default.
+
 ## [0.1.0-beta.1] - 2026-11-25
 
 Initial test only: the first pre-release, to check the publication of the image and to run it for the first time on a Docker host. It is not the

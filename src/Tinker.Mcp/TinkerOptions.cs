@@ -1,3 +1,5 @@
+using Tinker.Core.Embeddings;
+
 namespace Tinker.Mcp;
 
 /// <summary>Configuration, from the <c>Tinker</c> section: <c>Tinker__DataPath</c> and <c>Tinker__ManualsPath</c> (technical spec, section 4).</summary>
@@ -19,6 +21,12 @@ public sealed class TinkerOptions
 
     /// <summary>Folder with <c>model.onnx</c> and <c>vocab.txt</c> of the embedding model.</summary>
     public string EmbeddingModelPath { get; set; } = "models/bge-small-en-v1.5";
+
+    /// <summary>Texts the model embeds in one run, 1 to 64. A bigger batch uses more memory.</summary>
+    public int EmbeddingBatchSize { get; set; } = BgeEmbeddingGenerator.DefaultBatchSize;
+
+    /// <summary>CPU threads the model uses, 0 to 256; 0 lets ONNX Runtime choose.</summary>
+    public int EmbeddingThreads { get; set; }
 
     public string DatabasePath => Path.Combine(DataPath, "inventory.db");
 }

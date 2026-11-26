@@ -100,6 +100,8 @@ Environment variables, using the ASP.NET Core convention:
 | `Tinker__ManualsPath` | `manuals` | Folder with the PDF manuals. Manuals are given to the tools as paths relative to it |
 | `Tinker__EmbeddingModelPath` | `models/bge-small-en-v1.5` | Folder with `model.onnx` and `vocab.txt` |
 | `Tinker__EmbeddingModel` | `bge-small-en-v1.5` | `hash` selects a model-free generator for development and tests |
+| `Tinker__EmbeddingBatchSize` | `4` | Texts the model reads in one run, 1 to 64. A bigger batch uses more memory |
+| `Tinker__EmbeddingThreads` | `0` | CPU threads of the model, 0 to 256. `0` lets ONNX Runtime choose; lower it to leave CPU for other services |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | unset | When set, logs and traces are exported through OTLP. For Seq: `http://seq:5341/ingest/otlp` |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc` (`http/protobuf` in `docker-compose.yml`) | Seq only accepts `http/protobuf`: set it when exporting to Seq |
 | `OTEL_RESOURCE_ATTRIBUTES` | unset | For example `deployment.environment.name=production`; the server adds `service.name` and `service.version` itself |
@@ -123,6 +125,8 @@ services:
     security_opt: ["no-new-privileges:true"]
     environment:
       TZ: ${TZ:-Europe/Madrid}
+      Tinker__EmbeddingBatchSize: ${TINKER_EMBEDDING_BATCH_SIZE:-4}   # more uses more memory
+      Tinker__EmbeddingThreads: ${TINKER_EMBEDDING_THREADS:-0}        # 0: automatic
       # Logs and traces (OpenTelemetry). Empty exports nothing; logs still go to `docker logs`.
       OTEL_SERVICE_NAME: tinker-mcp
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}                  # for Seq: http://seq:5341/ingest/otlp
@@ -143,6 +147,8 @@ Give the variables a value in a `.env` next to the file (copy `.env.template`), 
 | `TINKER_PORT` | `7843` | Optional (default 7843). Port Tinker listens on, on this machine |
 | `TINKER_UID`, `TINKER_GID` | `1000`, `1000` | Optional, only in the repository's compose file. The owner of the data folder (`id -u`, `id -g`) |
 | `TZ` | `Europe/Madrid` | Optional. Timezone |
+| `TINKER_EMBEDDING_BATCH_SIZE` | `4` | Optional (default 4). Texts the model reads in one run, 1 to 64; a bigger batch uses more memory |
+| `TINKER_EMBEDDING_THREADS` | `0` | Optional (default 0, automatic). CPU threads of the model |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://seq:5341/ingest/otlp` | Optional. Where to send logs and traces; empty sends nothing |
 
 An example of the matching `.env`, with a value for every variable. Only the first one is required; change the others only if you need to:
@@ -158,6 +164,8 @@ TINKER_PORT=7843
 TINKER_UID=1000
 TINKER_GID=1000
 TZ=Europe/Madrid
+TINKER_EMBEDDING_BATCH_SIZE=4
+TINKER_EMBEDDING_THREADS=0
 OTEL_EXPORTER_OTLP_ENDPOINT=http://seq:5341/ingest/otlp
 ```
 
