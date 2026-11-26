@@ -79,7 +79,7 @@ docs/                      Functional and technical specs
 - **User and permissions.** The container runs as a **non-root user** set with `user:` in compose, matching the owner of the data folder.
 - **Startup validation.** On start the server checks that everything it needs is in place and writes every problem to the logs, with what is wrong and how to fix it. At least:
   - the data folder exists and is writable by the running user (an actual write test, not just a permission read);
-  - the manuals folder exists and is readable;
+  - the manuals folder exists and the running user can read it (list it and enter it, checked by actually doing it). Only the folder itself is checked, not every subfolder and file inside;
   - the database can be opened;
   - required configuration is present and valid.
 - **Configuration through environment variables**, using the ASP.NET Core convention (`Tinker__DataPath`, `Tinker__ManualsPath`), plus `ASPNETCORE_HTTP_PORTS` and the OpenTelemetry variables of section 3. Secrets go in an `env_file`, never in the image.
@@ -328,7 +328,7 @@ If the manuals become mixed (some English, some Spanish), a multilingual model i
 - **CI** runs every level on pushes to `main` and on pull requests (the system tests only outside pull requests), plus a scheduled run every 15 days; see "Continuous integration" below.
 - **Contract tests** (`Tinker.ContractTests`) start the real server in process and talk to it with the SDK's MCP client over HTTP. They check the contract, not the business rules (those are proved below). They check: the tools exposed and their names, the schemas (`snake_case`), that a rejection is `isError` with the same structured content and a success is not, the annotations and titles, that the structured content is also sent as text, that no raw exception ever travels, and that the trace context is propagated (a call with `traceparent` continues that trace, a call without it starts its own).
 - **Confinement tests** use a temporary folder with real links, including a link in an intermediate directory and a link whose target does not exist.
-- **Startup validation tests:** a data folder that is not writable, a missing manuals folder, a database with a newer schema, an index built with another model.
+- **Startup validation tests:** a data folder that is not writable, a missing manuals folder or one that cannot be read (on Linux, as a non-root user), a database with a newer schema, an index built with another model.
 - **Fixtures:** the public PDFs of `tests/fixtures/manuals/`, plus small generated PDFs for the edge cases (no text, several pages).
 - **Framework:** xUnit v3 on Microsoft.Testing.Platform (`global.json` selects the runner, so `dotnet test` works on the .NET 11 SDK). Analyzer rules about test names and inline arrays are relaxed in `tests/Directory.Build.props`.
 

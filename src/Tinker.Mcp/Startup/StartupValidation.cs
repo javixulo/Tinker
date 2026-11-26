@@ -15,10 +15,7 @@ public static class StartupValidation
         var problems = new List<string>();
         var dataOk = CheckDataFolder(options.DataPath, problems);
 
-        if (!Directory.Exists(options.ManualsPath))
-        {
-            problems.Add($"The manuals folder '{Path.GetFullPath(options.ManualsPath)}' does not exist. Create it or set Tinker__ManualsPath.");
-        }
+        CheckManualsFolder(options.ManualsPath, problems);
 
         if (dataOk)
         {
@@ -78,6 +75,38 @@ public static class StartupValidation
             problems.Add(
                 $"The manuals index was built with the embedding model '{stored}', but '{index.ExpectedModel}' is configured. " +
                 "Go back to the previous model, or delete the data folder and register the devices again.");
+        }
+    }
+
+    private static void CheckManualsFolder(string path, List<string> problems)
+    {
+        var full = Path.GetFullPath(path);
+        if (!Directory.Exists(full))
+        {
+            problems.Add($"The manuals folder '{full}' does not exist. Create it or set Tinker__ManualsPath.");
+            return;
+        }
+
+        try
+        {
+            // Listing it needs read permission.
+            _ = Directory.EnumerateFileSystemEntries(full).FirstOrDefault();
+            // Looking anything up inside needs enter (execute) permission. The name does not exist, so this also works in an
+            // empty folder: with the permission the answer is "not found", without it, "access denied".
+            try
+            {
+                _ = File.GetAttributes(Path.Combine(full, $".enter-test-{Guid.NewGuid():N}"));
+            }
+            catch (FileNotFoundException)
+            {
+            }
+        }
+        catch (Exception error) when (error is UnauthorizedAccessException or IOException)
+        {
+            problems.Add(
+                $"The manuals folder '{full}' cannot be read by the running user: {error.Message} " +
+                "Give that user, or one of its groups, read and enter (r-x) permission on it. In a container only the groups set " +
+                "in compose count (user and group_add), not the ones the user has on the host.");
         }
     }
 
