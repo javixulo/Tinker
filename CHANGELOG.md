@@ -10,6 +10,15 @@ entry is missing.
 
 ## [Unreleased]
 
+## [0.1.0-beta.3] - 2026-11-26
+
+### Fixed
+
+- The server no longer starts when it cannot read the manuals folder: it only checked that the folder existed, and then
+  answered `manual_not_found` for manuals that were there. The log now says to give the permission, and that in a container
+  only the groups set in compose (`user`, `group_add`) count.
+- README: the compose example takes the user and group from `TINKER_UID` and `TINKER_GID`.
+
 ## [0.1.0-beta.2] - 2026-11-26
 
 ### Changed
