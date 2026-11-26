@@ -118,7 +118,7 @@ services:
     image: ghcr.io/javixulo/tinker:${TINKER_VERSION}   # required, for example 0.1.0
     container_name: tinker-mcp
     restart: unless-stopped
-    user: "1000:1000"                  # owner of the data folder (`id -u`:`id -g`)
+    user: "${TINKER_UID:-1000}:${TINKER_GID:-1000}"   # owner of the data folder (`id -u`:`id -g`)
     ports:
       - "${TINKER_PORT:-7843}:8080"    # MCP endpoint (Streamable HTTP) and /health
     cap_drop: [ALL]
@@ -145,7 +145,7 @@ Give the variables a value in a `.env` next to the file (copy `.env.template`), 
 | `TINKER_DATA` | `/srv/tinker/data` | Optional (default `./data`). Folder of the database: a **local disk** (SQLite locking is not reliable over NFS or SMB), writable by `TINKER_UID` |
 | `TINKER_MANUALS` | `/srv/tinker/manuals` | Optional (default `./manuals`). Your PDF manuals, mounted read-only |
 | `TINKER_PORT` | `7843` | Optional (default 7843). Port Tinker listens on, on this machine |
-| `TINKER_UID`, `TINKER_GID` | `1000`, `1000` | Optional, only in the repository's compose file. The owner of the data folder (`id -u`, `id -g`) |
+| `TINKER_UID`, `TINKER_GID` | `1000`, `1000` | Optional (default 1000 and 1000). User and group the container runs as: the owner of the data folder (`id -u`, `id -g`) |
 | `TZ` | `Europe/Madrid` | Optional. Timezone |
 | `TINKER_EMBEDDING_BATCH_SIZE` | `4` | Optional (default 4). Texts the model reads in one run, 1 to 64; a bigger batch uses more memory |
 | `TINKER_EMBEDDING_THREADS` | `0` | Optional (default 0, automatic). CPU threads of the model |
