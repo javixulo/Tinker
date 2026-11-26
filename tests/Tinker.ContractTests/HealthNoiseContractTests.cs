@@ -60,6 +60,13 @@ public sealed class HealthNoiseContractTests : IDisposable
         using var request = new HttpRequestMessage(HttpMethod.Post, "/mcp") { Content = list };
         request.Headers.Add("Accept", "application/json, text/event-stream");
         (await client.SendAsync(request, TestContext.Current.CancellationToken)).EnsureSuccessStatusCode();
+        // The client gets the response before the server ends the span and writes its line: wait for both, or the test is a race.
+        Assert.True(
+            SpinWait.SpinUntil(
+                () => _recorder.Paths.Contains("/mcp")
+                    && _recorder.Logs.Entries.Any(entry => entry.Text.Contains("POST /mcp", StringComparison.Ordinal)),
+                TimeSpan.FromSeconds(10)),
+            "The span and the log line of POST /mcp never arrived.");
         _factory.Services.GetRequiredService<TracerProvider>().ForceFlush();
 
         Assert.Contains("/mcp", _recorder.Paths);
