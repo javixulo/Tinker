@@ -10,6 +10,8 @@ entry is missing.
 
 ## [Unreleased]
 
+## [0.1.0-beta.2] - 2026-11-26
+
 ### Changed
 
 - The health check of the image runs every 5 minutes instead of every 30 seconds (every 5 seconds while it starts, which needs
