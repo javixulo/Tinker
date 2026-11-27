@@ -79,7 +79,7 @@ jobs:
 
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
-      # The full version, the minor and the major (the last two move on purpose; the major is skipped while 0.x), the commit,
+      # The full version, the minor and the major (the last two move on purpose; the major is published while 0.x too), the commit,
       # and `latest` only for a version without a suffix.
       - name: Work out the tags
         id: meta

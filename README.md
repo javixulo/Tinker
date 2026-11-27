@@ -264,7 +264,7 @@ At start Tinker checks the data folder and the manuals folder themselves, not th
 
 The container runs as a non-root user, has a health check on `/health` and `restart: unless-stopped`, and needs no network access. TLS and authentication are the job of your reverse proxy, not Tinker's. To build the image from this repository instead of pulling it, uncomment `build: .` in the repository's compose file and run `docker compose up -d --build`; the first build needs network to download the embedding model (about 130 MB, from a pinned revision, checked against its SHA-256).
 
-**The image.** `ghcr.io/javixulo/tinker` (GitHub's container registry), for `linux/amd64` and `linux/arm64`. Tags: `0.1.0` (never moves), `0.1` (the newest patch), `latest` (the newest stable version; never a pre-release) and `sha-<commit>`. The package is public: no login is needed.
+**The image.** `ghcr.io/javixulo/tinker` (GitHub's container registry), for `linux/amd64` and `linux/arm64`. Tags: `0.1.0` (never moves), `0.1` (the newest patch), `0` (the newest 0.x, breaking minor versions included), `latest` (the newest stable version; never a pre-release) and `sha-<commit>`. The package is public: no login is needed.
 
 #### Updating and going back
 
