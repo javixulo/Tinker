@@ -6,12 +6,16 @@ services:
   tinker:
     # The published image (see README, "Updating"). To build it from this repository instead, uncomment `build` and
     # use `docker compose up -d --build`.
-    image: ghcr.io/javixulo/tinker:${TINKER_VERSION:?Set TINKER_VERSION to the version to run, for example 0.1.0 (see CHANGELOG.md)}
+    image: ghcr.io/javixulo/tinker:${TINKER_VERSION:?Set TINKER_VERSION to latest or to a version such as 0.1.0 (see CHANGELOG.md)}
     # build: .
     container_name: tinker-mcp
     restart: unless-stopped
-    # Non-root: use the owner of the data folder (`id -u`:`id -g` on the NAS).
+    # Non-root. This user id and main group must be able to write the data folder (see README, "Permissions").
     user: "${TINKER_UID:-1000}:${TINKER_GID:-1000}"
+    # Additional group of the process, to read the manuals. The groups of a host user do NOT reach the container: only
+    # these numbers count. Unset, it repeats the main group and adds nothing.
+    group_add:
+      - "${TINKER_MANUALS_GID:-${TINKER_GID:-1000}}"
     ports:
       - "${TINKER_PORT:-7843}:8080"
     # Least privilege: Tinker only serves HTTP and writes its own data folder.
