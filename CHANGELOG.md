@@ -10,6 +10,32 @@ entry is missing.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-27
+
+The first stable version: `latest` now points to it. The server works as in `0.1.0-beta.3`; what changes is the compose
+file and the documentation. Nothing has to be migrated from the pre-releases, and from this version on a change of the
+database schema comes with a migration. While the version is 0.x, a new minor version may still break compatibility.
+
+### Added
+
+- The compose file gives the container one more group with the new optional variable `TINKER_MANUALS_GID`, for manuals that
+  belong to another group than the data folder. The groups of a user of the host do not reach the container. If your own
+  compose file already uses `group_add`, it keeps working. Updating the image does not change your compose file.
+- README: a "Permissions" section with what each folder needs, how to check it and what each symptom means.
+
+### Changed
+
+- `latest` is a supported value of `TINKER_VERSION`. It does not update by itself: run
+  `docker compose pull && docker compose up -d`.
+
+### Known limitations
+
+- Some of the text of a PDF may be read wrong or not at all (ligatures, or text that is only drawn on the page), so a search
+  may not find it.
+- A PDF that the container cannot read gives a `failed` error, and a manual in a subfolder it cannot enter gives
+  `manual_not_found`. The README says how to check the permissions.
+- No authentication: do not expose the server without a proxy that controls the access.
+
 ## [0.1.0-beta.3] - 2026-11-26
 
 ### Fixed
