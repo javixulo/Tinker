@@ -428,4 +428,8 @@ In every criterion below, "rejected" means: a tool error (`isError`) with the er
 
 ## 3. Open questions
 
-No open questions. The question of regenerating the chunks is in the technical spec (see the open question *Regenerating the chunks and rebuilding the index*).
+| # | Title | Description | Status | Priority | Comments |
+|---|---|---|---|---|---|
+| 1 | Reading real manuals | How well Tinker must read the PDF manuals, because `search_manuals` can only find and return what is read from them. Seen with a real manual of a ceiling fan: (a) ligatures arrive as a single character (`oﬀ` instead of `off`); (b) a ligature is lost and a null character takes its place (`modi\u0000caciones` instead of `modificaciones`); (c) text that a person sees on the page is not in what is read, such as the list of parts, where the one that names the LED module is, so a question about it finds nothing. To decide: what must be read correctly, whether text that is only drawn or in images is in scope (it would probably need OCR), and what Tinker says when part of the text of an accepted manual is missing or wrong. Also still to check: pages with several columns and the quality of the text in general. | Open | Medium | Whether (a) or (b) make searches worse has not been measured, and the cause of (c) is not confirmed. PdfPig is the extractor in use and works with the test PDFs (technical spec, section 7). A change to what is read only reaches manuals that are read again (technical spec, open question *Regenerating the chunks and rebuilding the index*). |
+
+The question of regenerating the chunks is in the technical spec (see the open question *Regenerating the chunks and rebuilding the index*).
